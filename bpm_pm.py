@@ -7,10 +7,10 @@
 # checking the timestamps each time a channel is updated. Once all timestamps
 # agree the data is written to a mat file. The program then
 # waits for 5 sec before looking again. 
-# The program masks out data with timestamps of 1 jan 1990 as this indicates
+# The program masks out data with timestamps before 1 jan 1990 as this indicates
 # a machine has been restarted after the postmortem signal occured.
 #
-# Currently it can't cope with a nonresponsive machine (probably need to add a timeout)
+# Currently it can't cope with a nonresponsive machine ( adding a timeout)
 # Author Alun Morgan
 
 
@@ -25,10 +25,11 @@ os.environ["EPICS_CA_MAX_ARRAY_BYTES"] = "3000000"
 
 from cothread import *
 from cothread.catools import *
+from cothread.cothread import Timer
 from numpy import *
 from scipy.io import savemat,loadmat
 from scipy.signal import lfilter
-from time import time
+#from time import time
 
 PMDIR = "/tmp"
 FNAME = "bpm_postmortem"
@@ -44,18 +45,22 @@ class Saver:
         self.pv_list = pv_list
         self.pv_count = len(pv_list)
         self.results = zeros((self.pv_count, wf_len), dtype = float)
-        self.masked_results = zeros((self.pv_count, wf_len), dtype = float)
         # lookup index name from channel name
-        self.stamps = zeros(self.pv_count)
-        self.masked_stamps = zeros(self.pv_count)
+        self.stamps = zeros(self.pv_count)    
         self.seen = zeros(self.pv_count, dtype = bool)
         # adding a mask as some machines may have been restarted 
         #or have dropped off the network
         self.mask = zeros(self.pv_count, dtype = bool)
+        self.seen[:] = False
+        self.mask[:] = True
+        # initialising stopwatch
+       # self.stopwatch=Timer(5,self.mask_timeout()) 
+       # self.stopwatch.cancel()
         #connect pvs
         camonitor(self.pv_list, self.update_array_entry, format = FORMAT_TIME)      
 
     def update_array_entry(self, new_value, index):
+        print 'Updating array'
         # Record the incoming data.
         self.results[index] = new_value
         self.stamps[index] = new_value.timestamp
@@ -64,41 +69,66 @@ class Saver:
         if (new_value.timestamp < 631152001.0):
             self.mask[index] = False
         else:
-            self.mask[index] = True      
-       
-# NEED TO ADD SOMETHING TO PROD(Timer?) AFTER SOME TIME AND THEN MASK OUT ALL REMAINING PVs
-        # if timeout occours mask out missing PVs (FIXME)
-        #self.mask = logical_and(self.seen, self.mask)
+            self.mask[index] = True   
 
-       # Checking if all the non masked PVs have been seen
+        #(Re)start timer
+        print 'Resetting timer'
+       # self.stopwatch.cancel()
+       # self.stopwatch=Timer(5,self.mask_timeout())   
+        self.check_array()       
+
+    def check_array(self):
+      #  print 'mask'
+      #  print self.mask
+       # Sleep(10)
+        print 'Checking if all the non masked PVs have been seen'
         a=logical_and(self.seen, self.mask)
         b=logical_not(self.mask)
+#        print b
+#        Sleep(10)
         c=logical_or(a, b)
         if alltrue(c):
+            print ' Yes they have'
+           # self.stopwatch.cancel()
             if alltrue(b):
                 print 'No valid timestamps'
                 self.reset()
             else:
+                print ' Valid timestamps'
                 t = 0
+                masked_stamps = zeros(self.pv_count)
+             #   masked_results = zeros((self.pv_count, len(self.results)), dtype = float)                
+                #print self.mask
                 for h in range(len(self.results)):
                     if self.mask[h] == True:
-                        self.masked_stamps[t] = self.stamps[h]
-                       # self.masked_results[t] = self.results[h]
+                        masked_stamps[t] = self.stamps[h]
+                       # masked_results[t] = results[h]
                         t = t + 1
-                self.masked_stamps = self.masked_stamps[0:t-1]
+
+                masked_stamps = masked_stamps[0:t-1]
                 # If we've seen them all then check that they've all got the same
                 # timestamp. (within 1 sec and for the valid machines)
-                if (abs(self.masked_stamps - self.masked_stamps[0]) < 1000000).all():
+                if (abs(masked_stamps - masked_stamps[0]) < 1000000).all():
                     # Compute the filename as the timestamp in UTC format in
                     # seconds.
                     self.filtering()
                     self.write_result(
-                        self.stamps[0], self.filename(self.masked_stamps[0]))
+                        self.stamps[0], self.filename(masked_stamps[0]))
                     self.reset()
                 else:
                     # If the timestamps don't match keep on watching until they
                     # do.
                     print 'Timestamps don\'t match'
+        else:
+            print 'No they haven\'t '
+        
+    def mask_timeout(self):
+    # if timeout occours mask out missing PVs
+        #print self.mask
+        print 'Timed out setting all non responsive channel masks to false'
+        self.mask = logical_and(self.seen, self.mask)
+        #print self.mask
+        #self.check_array()
 
     def filename(self, new_value):
         # Computes the filename from the timestamp.
@@ -114,11 +144,6 @@ class Saver:
         self.iir_out = lfilter(self.taps['n2n'],self.taps['n2d'],lfilter(self.taps['n1n'],self.taps['n1d'],fir_out[26:53:len(fir_out),:]))
             
     def write_result(self, time, filename):
-        # Convert the results into complex numbers
-       # result = self.results.reshape(self.pv_count/2, 2, -1)
-       # result = result[:, 0] + 1j * result[:, 1]
-        
-        # we've got all the channels
         if os.path.isfile(filename):
             print 'File %s already exists' % filename
         else:
@@ -126,8 +151,10 @@ class Saver:
             savemat(filename, {'pm': self.results, 'time': time, 'filtered': self.iir_out} , appendmat=True)
         
     def reset(self):
+        print 'Resetting'
         Sleep(5)
         self.results[:] = 0
+        self.stamps[:] = 0
         self.seen[:] = False
         self.mask[:] = True
             
