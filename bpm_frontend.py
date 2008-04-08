@@ -9,7 +9,7 @@ from cothread import *
 iqt()
 
 #import pylab
-from pylab import linspace,axes,setp,title,plot,axvline,xlabel,ylabel
+from pylab import linspace,axes,setp,title,plot,axvline,axhline,xlabel,ylabel,axis
 #import numpy
 from numpy import transpose
 import qt
@@ -34,17 +34,25 @@ m = loadmat(filename)
 
 # splitting out the data and the timestamp
 utctime = m['time']
+# No filtering
 pm = m['pm']
+# after passing though the fir filter
+#pm = m['fir']
+# after passing throung both fir and iir filters (broken)
+#pm = m['iir']
 x = transpose(pm[range(0,336,2)])
 y = transpose(pm[range(1,336,2)])
 
-x=x[range(-2000,0)]
-y=y[range(-2000,0)]
+#What units are the y axis in (original data is in nm? um? mm?)
+# assuming nm for the moment
 
-turnbase = linspace(-1000,1000,2000)
-# Need to pull in the RF frequency when the dat is captured
-#timebase = turnbase*(1/499.654E6*936)*1000
-#What units are the y axis in (original data is in um? mm?)
+x=x[range(-14000,0)]
+y=y[range(-14000,0)]
+
+x=x/1000000
+y=y/1000000
+
+turnbase = linspace(-13000,1000,14000)
 a = axes([0,0,1,0.93],axisbg='grey')
 setp(a,xticks=[],yticks=[])
 time = datetime.fromtimestamp(utctime)   
@@ -52,35 +60,44 @@ disptime = ['BPM postmortem for ',str(time.day),'/',str(time.month),'/',str(time
 disptime = ''.join(disptime)
 title(disptime)
 
-axes([0.1,0.08,0.35,0.3])
-plot(turnbase,x)
-axvline(0)
-xlabel('turns relative to post mortem event')
-ylabel('X [mm]')
-title('    RF <--|--> MPS')
-
-axes([0.6,0.08,0.35,0.3])
-#plot(timebase,x)
-plot(turnbase[975:1025],x[975:1025])
-axvline(0)
-xlabel('turns relative to post mortem event')
-#xlabel('time [ms] relative to post mortem event')
-ylabel('X [mm]')
 
 axes([0.1,0.08+0.45,0.35,0.3])
-plot(turnbase,y)
+plot(turnbase,x)
 axvline(0)
+axhline(y=1, color='r', ls='--')
+axhline(y=-1, color='r', ls='--')
+axis([-13000,1000,-2, 2])
 xlabel('turns relative to post mortem event')
-ylabel('Y [mm]')
+ylabel('X [mm]')
+
+axes([0.1,0.08,0.35,0.3])
+plot(turnbase[12500:13500],x[12500:13500])
+axvline(0)
+axhline(y=1, color='r', ls='--')
+axhline(y=-1, color='r', ls='--')
+axis([-500,500,-5, 5])
+xlabel('turns relative to post mortem event')
+ylabel('X [mm]')
 title('    RF <--|--> MPS')
 
 axes([0.6,0.08+0.45,0.35,0.3])
-#plot(timebase,y)
-plot(turnbase[975:1025],y[975:1025])
+plot(turnbase,y)
 axvline(0)
+axhline(y=1, color='r', ls='--')
+axhline(y=-1, color='r', ls='--')
+axis([-13000,1000,-2, 2])
 xlabel('turns relative to post mortem event')
-#xlabel('time [ms] relative to post mortem event')
 ylabel('Y [mm]')
+
+axes([0.6,0.08,0.35,0.3])
+plot(turnbase[12500:13500],y[12500:13500])
+axvline(0)
+axhline(y=1, color='r', ls='--')
+axhline(y=-1, color='r', ls='--')
+axis([-500,500,-5, 5])
+xlabel('turns relative to post mortem event')
+ylabel('Y [mm]')
+title('    RF <--|--> MPS')
 
 WaitForQuit()
 

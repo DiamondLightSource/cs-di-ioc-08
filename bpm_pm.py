@@ -54,8 +54,8 @@ class Saver:
         self.seen[:] = False
         self.mask[:] = True
         # initialising stopwatch
-       # self.stopwatch=Timer(5,self.mask_timeout()) 
-       # self.stopwatch.cancel()
+        #self.stopwatch=Timer(5,self.mask_timeout()) 
+        #self.stopwatch.cancel()
         #connect pvs
         camonitor(self.pv_list, self.update_array_entry, format = FORMAT_TIME)      
 
@@ -97,14 +97,19 @@ class Saver:
                 print ' Valid timestamps'
                 t = 0
                 masked_stamps = zeros(self.pv_count)
-             #   masked_results = zeros((self.pv_count, len(self.results)), dtype = float)                
+               # masked_results = zeros((self.pv_count, len(self.results)), dtype = float)  
+                masked_results = self.results              
                 #print self.mask
                 for h in range(len(self.results)):
                     if self.mask[h] == True:
+                        # removing the timestamps with a false mask
                         masked_stamps[t] = self.stamps[h]
-                       # masked_results[t] = results[h]
                         t = t + 1
+                    else:
+                        # setting all results with a false mask to zero
+                        masked_results[h] = 0
 
+            
                 masked_stamps = masked_stamps[0:t-1]
                 # If we've seen them all then check that they've all got the same
                 # timestamp. (within 1 sec and for the valid machines)
@@ -113,7 +118,7 @@ class Saver:
                     # seconds.
                     self.filtering()
                     self.write_result(
-                        self.stamps[0], self.filename(masked_stamps[0]))
+                        self.stamps[0], self.filename(masked_stamps[0]),masked_results)
                     self.reset()
                 else:
                     # If the timestamps don't match keep on watching until they
@@ -139,16 +144,16 @@ class Saver:
     def filtering(self):
         # this filters the data from FA to TT to mimic what the BPMs do 
         # FIR filter        
-        fir_out = lfilter(self.taps['fir'],1,self.results)/131072
+        self.fir_out = lfilter(self.taps['fir'],1,self.results)/131072
         # IIR filter (needs more work)
-        self.iir_out = lfilter(self.taps['n2n'],self.taps['n2d'],lfilter(self.taps['n1n'],self.taps['n1d'],fir_out[26:53:len(fir_out),:]))
+        self.iir_out = lfilter(self.taps['n2n'],self.taps['n2d'],lfilter(self.taps['n1n'],self.taps['n1d'],self.fir_out[26:53:len(self.fir_out),:]))
             
-    def write_result(self, time, filename):
+    def write_result(self, time, filename, results):
         if os.path.isfile(filename):
             print 'File %s already exists' % filename
         else:
             print 'Writing pm', filename
-            savemat(filename, {'pm': self.results, 'time': time, 'filtered': self.iir_out} , appendmat=True)
+            savemat(filename, {'pm': results, 'time': time, 'iir': self.iir_out, 'fir': self.fir_out} , appendmat=True)
         
     def reset(self):
         print 'Resetting'
