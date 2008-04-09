@@ -23,6 +23,7 @@ if __name__ == "__main__":
 import os, datetime, time
 os.environ["EPICS_CA_MAX_ARRAY_BYTES"] = "3000000"
 
+import sys
 from cothread import *
 from cothread.catools import *
 from cothread.cothread import Timer
@@ -33,18 +34,70 @@ from scipy.signal import lfilter
 
 PMDIR = "/tmp"
 FNAME = "bpm_postmortem"
-taps = loadmat("/tmp/liberafilter.mat")
+#taps = loadmat("liberafilter.mat")
 
+
+class Filter:
+    def __init__(self, filename):
+        taps = loadmat("liberafilter.mat")
+        for name in taps.keys():
+            setattr(self, name, taps[name])
+        self.fir_sum = sum(self.fir)
+
+    def tt2fa(self, waveform):
+        # this filters the data from FA to TT to mimic what the BPMs do 
+        # FIR filter
+#        print type(waveform)
+
+        # First apply the polyphase low pass filter and decimate the data
+        # 1:53.  We need to convert the data from int32 to floating point to
+        # allow the filtering to work.
+        #    Also, it should be possible to do the filtering and decimation
+        # in the same step ...
+        waveform = array(waveform, dtype = float)
+        fir_out = lfilter(self.fir, 1, waveform) / self.fir_sum
+        fir_out = fir_out[26::53]
+
+        return lfilter(
+            self.n2n, self.n2d,
+            lfilter(self.n1n, self.n1d, fir_out))
+
+
+class Result:
+    def __init__(self, pv_count, filter):
+        self.filter = filter
+        
+        tt_length = 1000
+        fa_length = 309
+        
+        self.xy = zeros((pv_count, tt_length), dtype = float)
+        self.xyfa = zeros((pv_count, fa_length), dtype = float)
+
+    def update(self, index, waveform):
+        self.xy[index] = waveform[-1500:-500]
+        self.xyfa[index] = self.filter.tt2fa(waveform)
+
+    def write(self, time, filename):
+        savemat(filename, {
+            'x':   self.xy[::2].T,
+            'y':   self.xy[1::2].T,
+            'xfa': self.xyfa[::2].T,
+            'yfa': self.xyfa[1::2].T,
+            'time': time }, appendmat=True)
+
+    def reset(self):
+        self.xy[:] = 0
+        self.xyfa[:] = 0
+        
 
 class Saver:
 
     # object constructor
-    def __init__(self, id, pv_list, wf_len, taps):
-        self.taps = taps
-        self.id = id
+    def __init__(self, pv_list, wf_len, filter):
         self.pv_list = pv_list
         self.pv_count = len(pv_list)
-        self.results = zeros((self.pv_count, wf_len), dtype = float)
+#        self.results = zeros((self.pv_count, wf_len), dtype = float)
+        self.results = Result(self.pv_count, filter)
         # lookup index name from channel name
         self.stamps = zeros(self.pv_count)    
         self.seen = zeros(self.pv_count, dtype = bool)
@@ -57,15 +110,20 @@ class Saver:
         #self.stopwatch=Timer(5,self.mask_timeout()) 
         #self.stopwatch.cancel()
         #connect pvs
-        camonitor(self.pv_list, self.update_array_entry, format = FORMAT_TIME)      
+
+        camonitor(
+            self.pv_list, self.update_array_entry, format = FORMAT_TIME)      
 
     def update_array_entry(self, new_value, index):
         print 'Updating array'
         # Record the incoming data.
-        self.results[index] = new_value
+#        self.results[index] = new_value
+        self.results.update(index, new_value)
         self.stamps[index] = new_value.timestamp
         self.seen[index] = True
-        # if a machine is restarted the postmortem timestamp is 1 jan 1990 or 1 Jan 1970. Therefore if the timestamp is prior to 1 jan 1990 mask it out.
+        # if a machine is restarted the postmortem timestamp is 1 jan 1990 or
+        # 1 Jan 1970. Therefore if the timestamp is prior to 1 jan 1990 mask
+        # it out.
         if (new_value.timestamp < 631152001.0):
             self.mask[index] = False
         else:
@@ -82,11 +140,11 @@ class Saver:
       #  print self.mask
        # Sleep(10)
         print 'Checking if all the non masked PVs have been seen'
-        a=logical_and(self.seen, self.mask)
-        b=logical_not(self.mask)
+        a = self.seen & self.mask
+        b = ~self.mask
 #        print b
 #        Sleep(10)
-        c=logical_or(a, b)
+        c = a | b
         if alltrue(c):
             print ' Yes they have'
            # self.stopwatch.cancel()
@@ -95,30 +153,35 @@ class Saver:
                 self.reset()
             else:
                 print ' Valid timestamps'
-                t = 0
-                masked_stamps = zeros(self.pv_count)
-               # masked_results = zeros((self.pv_count, len(self.results)), dtype = float)  
-                masked_results = self.results              
-                #print self.mask
-                for h in range(len(self.results)):
-                    if self.mask[h] == True:
-                        # removing the timestamps with a false mask
-                        masked_stamps[t] = self.stamps[h]
-                        t = t + 1
-                    else:
-                        # setting all results with a false mask to zero
-                        masked_results[h] = 0
-
-            
-                masked_stamps = masked_stamps[0:t-1]
-                # If we've seen them all then check that they've all got the same
-                # timestamp. (within 1 sec and for the valid machines)
-                if (abs(masked_stamps - masked_stamps[0]) < 1000000).all():
+                
+#                 t = 0
+#                 masked_stamps = zeros(self.pv_count)
+#                # masked_results = zeros((self.pv_count, len(self.results)), dtype = float)  
+#                 masked_results = self.results              
+#                 #print self.mask
+#                 for h in range(len(self.results)):
+#                     if self.mask[h] == True:
+#                         # removing the timestamps with a false mask
+#                         masked_stamps[t] = self.stamps[h]
+#                         t = t + 1
+#                     else:
+#                         # setting all results with a false mask to zero
+#                         masked_results[h] = 0
+# 
+#             
+#                 masked_stamps = masked_stamps[0:t-1]
+                # If we've seen them all then check that they've all got the
+                # same timestamp. (within 1 sec and for the valid machines)
+                if True:
+#                if (abs(masked_stamps - masked_stamps[0]) < 1000000).all():
+                    
                     # Compute the filename as the timestamp in UTC format in
                     # seconds.
-                    self.filtering()
+#                    self.filtering()
                     self.write_result(
-                        self.stamps[0], self.filename(masked_stamps[0]),masked_results)
+                        self.stamps[0],
+                        '/tmp/bpm_postmortem')
+#                        self.filename(masked_stamps[0]))
                     self.reset()
                 else:
                     # If the timestamps don't match keep on watching until they
@@ -137,45 +200,59 @@ class Saver:
 
     def filename(self, new_value):
         # Computes the filename from the timestamp.
-        datestring = datetime.datetime.utcfromtimestamp(new_value).replace(microsecond = 0).isoformat()
+        datestring = datetime.datetime.utcfromtimestamp(
+            new_value).replace(microsecond = 0).isoformat()
         return os.path.join(PMDIR,
-            '%s-%02d-%s.mat' % (FNAME, self.id, datestring))
+            '%s-%02d-%s.mat' % (FNAME, 1, datestring))
 
     def filtering(self):
         # this filters the data from FA to TT to mimic what the BPMs do 
-        # FIR filter        
-        self.fir_out = lfilter(self.taps['fir'],1,self.results)/131072
+        # FIR filter
+
+        # First apply the polyphase low pass filter
+        self.fir_out = lfilter(self.fir, 1, self.results) / self.fir_sum
+        # Then decimate 1:53 (should be able to do these two together).
+        self.fir_out = self.fir_out[:, 26::53]
+        
         # IIR filter (needs more work)
-        self.iir_out = lfilter(self.taps['n2n'],self.taps['n2d'],lfilter(self.taps['n1n'],self.taps['n1d'],self.fir_out[26:53:len(self.fir_out),]))
+        self.iir_out = lfilter(
+            self.taps['n2n'], self.taps['n2d'],
+            lfilter(
+                self.taps['n1n'], self.taps['n1d'],
+                self.fir_out))
             
-    def write_result(self, time, filename, results):
+    def write_result(self, time, filename):
         if os.path.isfile(filename):
             print 'File %s already exists' % filename
         else:
             print 'Writing pm', filename
-            savemat(filename, {'pm': results, 'time': time, 'iir': self.iir_out, 'fir': self.fir_out} , appendmat=True)
+            self.results.write(time, filename)
+#             savemat(filename, {
+#                 'pm': results,
+#                 'time': time,
+#                 'iir': self.iir_out,
+#                 'fir': self.fir_out } , appendmat=True)
         
     def reset(self):
         print 'Resetting'
-        Sleep(5)
-        self.results[:] = 0
+        self.results.reset()
         self.stamps[:] = 0
         self.seen[:] = False
         self.mask[:] = True
+        Sleep(5)
             
   
 # epics channels for RF
-pv_lists = [
-    (id, ['SR%02dC-DI-EBPM-%02d:PM:WF%c' % (cell, position, xy)
+pv_list = [
+    'SR%02dC-DI-EBPM-%02d:PM:WF%c' % (cell, position, xy)
         for cell in range(1,25) 
         for position in range(1,8)
-        for xy in 'XY'])
-    for id in [1]]
+        for xy in 'XY']
 
+
+filter = Filter('liberafilter.mat')
 
 # save task
 if __name__ == "__main__":
-    savers = [
-        Saver(id, pv_list, 2**14, taps)
-        for id, pv_list in pv_lists]
+    Saver(pv_list, 2**14, filter)
     WaitForQuit()
