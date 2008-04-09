@@ -146,7 +146,7 @@ class Saver:
         # FIR filter        
         self.fir_out = lfilter(self.taps['fir'],1,self.results)/131072
         # IIR filter (needs more work)
-        self.iir_out = lfilter(self.taps['n2n'],self.taps['n2d'],lfilter(self.taps['n1n'],self.taps['n1d'],self.fir_out[26:53:len(self.fir_out),:]))
+        self.iir_out = lfilter(self.taps['n2n'],self.taps['n2d'],lfilter(self.taps['n1n'],self.taps['n1d'],self.fir_out[26:53:len(self.fir_out),]))
             
     def write_result(self, time, filename, results):
         if os.path.isfile(filename):
