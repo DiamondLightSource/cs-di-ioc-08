@@ -9,21 +9,7 @@ from cothread import *
 iqt()
 
 #import pylab
-from pylab import *
-
-import matplotlib.backends.backend_qt
-import qt, plotter
-
-def paintEvent(self, e):
-    print "hello"
-    p = qt.QPainter(self)
-    p.fillRect(qt.QWidget.rect(self), qt.QBrush(qt.Qt.white))
-    pt = plotter.Plotter(p, self.get_width_height()[1])
-    self.figure.draw(pt)
-    p.end()
-
-matplotlib.backends.backend_qtagg.FigureCanvasQTAgg.paintEvent = paintEvent
-
+from pylab import linspace,axes,setp,title,plot,axvline,axhline,xlabel,ylabel,axis
 #import numpy
 from numpy import transpose
 import qt
@@ -59,15 +45,6 @@ yfa = yfa / 1000000
 
 turnbase = linspace(-2**14+1000,1000,len(xfa))
 
-# keep = backend_qtagg.test()
-fig = figure(1001)
-print fig.canvas
-print fig.canvas.__class__.paintEvent
-print fig.canvas.paintEvent
-
-# fig.canvas.paintEvent(None)
-
-ioff()
 a = axes([0,0,1,0.93],axisbg='grey')
 setp(a,xticks=[],yticks=[])
 time = datetime.fromtimestamp(utctime)   
@@ -113,7 +90,5 @@ xlabel('turns relative to post mortem event')
 ylabel('Y [mm]')
 title('    RF <--|--> MPS')
 
-draw()
-show()
 WaitForQuit()
 
