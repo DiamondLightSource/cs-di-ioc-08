@@ -5,10 +5,10 @@
 # The program waits for a reponse on all the monitored channels, then it
 # checks the time stamps are all the same. If not it will continue waiting
 # checking the timestamps each time a channel is updated. Once all timestamps
-# agree the data is written to a mat file. The program then
-# waits for 5 sec before looking again. 
-# The program masks out data with timestamps before 1 jan 1990 as this indicates
-# a machine has been restarted after the postmortem signal occured.
+# agree the data is written to a mat file. The program then waits for 5 sec
+# before looking again.  The program masks out data with timestamps before 1
+# jan 1990 as this indicates a machine has been restarted after the postmortem
+# signal occured.
 #
 # Currently it can't cope with a nonresponsive machine ( adding a timeout)
 # Author Alun Morgan
@@ -30,37 +30,31 @@ from cothread.cothread import Timer
 from numpy import *
 from scipy.io import savemat,loadmat
 from scipy.signal import lfilter
-#from time import time
+
+from decimate import decimate
 
 PMDIR = "/tmp"
 FNAME = "bpm_postmortem"
-#taps = loadmat("liberafilter.mat")
 
 
 class Filter:
     def __init__(self, filename):
-        taps = loadmat("liberafilter.mat")
+        taps = loadmat(filename)
         for name in taps.keys():
             setattr(self, name, taps[name])
         self.fir_sum = sum(self.fir)
 
     def tt2fa(self, waveform):
-        # this filters the data from FA to TT to mimic what the BPMs do 
-        # FIR filter
-#        print type(waveform)
+        # This filters the data from FA to TT to mimic what the BPMs do.
 
         # First apply the polyphase low pass filter and decimate the data
-        # 1:53.  We need to convert the data from int32 to floating point to
-        # allow the filtering to work.
-        #    Also, it should be possible to do the filtering and decimation
-        # in the same step ...
-        waveform = array(waveform, dtype = float)
-        fir_out = lfilter(self.fir, 1, waveform) / self.fir_sum
-        fir_out = fir_out[26::53]
-
+        # 1:53.  
+        waveform = decimate(waveform, self.fir, 53) / self.fir_sum
+        # Then pass the decimated data through two notch filters (to remove
+        # the remaining switching frequencies)
         return lfilter(
             self.n2n, self.n2d,
-            lfilter(self.n1n, self.n1d, fir_out))
+            lfilter(self.n1n, self.n1d, waveform))
 
 
 class Result:
@@ -68,10 +62,11 @@ class Result:
         self.filter = filter
         
         tt_length = 1000
-        fa_length = 309
+        fa_length = 307
         
         self.xy = zeros((pv_count, tt_length), dtype = float)
         self.xyfa = zeros((pv_count, fa_length), dtype = float)
+#        self.good = arange(168)
 
     def update(self, index, waveform):
         self.xy[index] = waveform[-1500:-500]
@@ -79,10 +74,11 @@ class Result:
 
     def write(self, time, filename):
         savemat(filename, {
-            'x':   self.xy[::2].T,
-            'y':   self.xy[1::2].T,
-            'xfa': self.xyfa[::2].T,
-            'yfa': self.xyfa[1::2].T,
+            'x':   1e-6 * self.xy[::2].T,
+            'y':   1e-6 * self.xy[1::2].T,
+            'xfa': 1e-6 * self.xyfa[::2].T,
+            'yfa': 1e-6 * self.xyfa[1::2].T,
+#            'good': self.good,
             'time': time }, appendmat=True)
 
     def reset(self):
@@ -115,12 +111,13 @@ class Saver:
             self.pv_list, self.update_array_entry, format = FORMAT_TIME)      
 
     def update_array_entry(self, new_value, index):
-        print 'Updating array'
+        sys.stderr.write('[')
+
         # Record the incoming data.
-#        self.results[index] = new_value
         self.results.update(index, new_value)
         self.stamps[index] = new_value.timestamp
         self.seen[index] = True
+
         # if a machine is restarted the postmortem timestamp is 1 jan 1990 or
         # 1 Jan 1970. Therefore if the timestamp is prior to 1 jan 1990 mask
         # it out.
@@ -130,16 +127,20 @@ class Saver:
             self.mask[index] = True   
 
         #(Re)start timer
-        print 'Resetting timer'
+#        print 'Resetting timer'
        # self.stopwatch.cancel()
-       # self.stopwatch=Timer(5,self.mask_timeout())   
-        self.check_array()       
+       # self.stopwatch=Timer(5,self.mask_timeout())
+       
+        self.check_array()
+        
+        sys.stderr.write('.')
+
 
     def check_array(self):
       #  print 'mask'
       #  print self.mask
        # Sleep(10)
-        print 'Checking if all the non masked PVs have been seen'
+#        print 'Checking if all the non masked PVs have been seen'
         a = self.seen & self.mask
         b = ~self.mask
 #        print b
@@ -188,7 +189,8 @@ class Saver:
                     # do.
                     print 'Timestamps don\'t match'
         else:
-            print 'No they haven\'t '
+            pass
+#            print 'No they haven\'t '
         
     def mask_timeout(self):
     # if timeout occours mask out missing PVs

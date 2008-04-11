@@ -8,10 +8,9 @@ require('matplotlib')
 from cothread import *
 iqt()
 
-#import pylab
-from pylab import linspace,axes,setp,title,plot,axvline,axhline,xlabel,ylabel,axis
+from pylab import *
 #import numpy
-from numpy import transpose
+from numpy import *
 import qt
 from scipy.io import loadmat
 import sys
@@ -30,6 +29,9 @@ else:
     if not filename:
         sys.exit(1)
 
+print 'Loading postmortem'
+ioff()
+
 m = loadmat(filename)
 
 # splitting out the data and the timestamp
@@ -37,13 +39,15 @@ utctime = m['time']
 # filtered postmortem data for x and y
 xfa = m['xfa']
 yfa = m['yfa']
+x   = m['x']
+y   = m['y']
 
-#What units are the y axis in (original data is in nm? um? mm?)
-# assuming nm for the moment
-xfa = xfa / 1000000
-yfa = yfa / 1000000
 
-turnbase = linspace(-2**14+1000,1000,len(xfa))
+f_t = 533818.
+start = -15384000 / f_t
+stop = 999000. / f_t
+fa_turnbase = linspace(start, stop, len(xfa))
+tt_turnbase = linspace(-500, 500, len(x))
 
 a = axes([0,0,1,0.93],axisbg='grey')
 setp(a,xticks=[],yticks=[])
@@ -53,16 +57,16 @@ disptime = ''.join(disptime)
 title(disptime)
 
 axes([0.1,0.08+0.45,0.35,0.3])
-plot(turnbase,xfa)
+plot(fa_turnbase,xfa)
 axvline(0)
 axhline(y=1, color='r', ls='--')
 axhline(y=-1, color='r', ls='--')
-axis([-13000,1000,-2, 2])
-xlabel('turns relative to post mortem event')
+axis([-25, stop, -2, 2])
+xlabel('microseconds relative to post mortem event')
 ylabel('X [mm]')
 
 axes([0.1,0.08,0.35,0.3])
-plot(turnbase,xfa)
+plot(tt_turnbase, x)
 axvline(0)
 axhline(y=1, color='r', ls='--')
 axhline(y=-1, color='r', ls='--')
@@ -72,16 +76,16 @@ ylabel('X [mm]')
 title('    RF <--|--> MPS')
 
 axes([0.6,0.08+0.45,0.35,0.3])
-plot(turnbase,yfa)
+plot(fa_turnbase,yfa)
 axvline(0)
 axhline(y=1, color='r', ls='--')
 axhline(y=-1, color='r', ls='--')
-axis([-13000,1000,-2, 2])
-xlabel('turns relative to post mortem event')
+axis([-25, stop,-2, 2])
+xlabel('microseconds relative to post mortem event')
 ylabel('Y [mm]')
 
 axes([0.6,0.08,0.35,0.3])
-plot(turnbase,yfa)
+plot(tt_turnbase, y)
 axvline(0)
 axhline(y=1, color='r', ls='--')
 axhline(y=-1, color='r', ls='--')
@@ -90,5 +94,6 @@ xlabel('turns relative to post mortem event')
 ylabel('Y [mm]')
 title('    RF <--|--> MPS')
 
+show()
 WaitForQuit()
 
