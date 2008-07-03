@@ -33,7 +33,7 @@ from scipy.signal import lfilter
 
 from decimate import decimate
 
-PMDIR = "/tmp"
+PMDIR = "/home/ops/BPMs/BPM_postmortems"
 FNAME = "bpm_postmortem"
 
 
@@ -181,8 +181,8 @@ class Saver:
 #                    self.filtering()
                     self.write_result(
                         self.stamps[0],
-                        '/tmp/bpm_postmortem')
-#                        self.filename(masked_stamps[0]))
+#                        '/tmp/bpm_postmortem')
+                        self.filename(self.stamps[0]))
                     self.reset()
                 else:
                     # If the timestamps don't match keep on watching until they
@@ -205,7 +205,7 @@ class Saver:
         datestring = datetime.datetime.utcfromtimestamp(
             new_value).replace(microsecond = 0).isoformat()
         return os.path.join(PMDIR,
-            '%s-%02d-%s.mat' % (FNAME, 1, datestring))
+            '%s-%s.mat' % (FNAME, datestring))
 
     def filtering(self):
         # this filters the data from FA to TT to mimic what the BPMs do 
