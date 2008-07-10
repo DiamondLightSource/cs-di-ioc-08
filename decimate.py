@@ -8,7 +8,7 @@ _decimate = decimate_lib.decimate
 
 
 def decimate(waveform, filter, interval=1):
-    '''Filters waveform with filter, possibly performing decimation by the
+    '''Convolves waveform with filter, possibly performing decimation by the
     factory specified by interval at the same time.  Only points entirely
     within waveform will be filtered.'''
 

@@ -7,4 +7,4 @@
 default: _decimate.so
 
 clean:
-	rm -f *.so *.o
+	rm -f *.so *.o *.pyc
