@@ -9,7 +9,7 @@ _decimate = decimate_lib.decimate
 
 def decimate(waveform, filter, interval=1):
     '''Convolves waveform with filter, possibly performing decimation by the
-    factory specified by interval at the same time.  Only points entirely
+    factor specified by interval at the same time.  Only points entirely
     within waveform will be filtered.'''
 
     # First ensure the inputs are compatible.  We only allow one dimensional
