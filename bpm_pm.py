@@ -61,25 +61,31 @@ class Result:
     def __init__(self, pv_count, filter):
         self.filter = filter
         
-        tt_length = 1000
-        fa_length = 307
+        self.tt_length = 1000
+        self.fa_length = 307
         
-        self.xy = zeros((pv_count, tt_length), dtype = float)
-        self.xyfa = zeros((pv_count, fa_length), dtype = float)
+        self.xy = zeros((pv_count, self.tt_length), dtype = float)
+        self.xyfa = zeros((pv_count, self.fa_length), dtype = float)
 #        self.good = arange(168)
 
     def update(self, waveform, index):
-        self.xy[index] = waveform[-1500:-500]
-        self.xyfa[index] = self.filter.tt2fa(waveform)
+          self.xy[index] = waveform[-1500:-500]
+          self.xyfa[index] = self.filter.tt2fa(waveform)
 
     def write(self, time, filename):
+        s = zeros([self.tt_length,1])
+        sfa = zeros([self.fa_length,1])
+        self.xy[2::3,:].T.mean(axis=1,out=s)
+        self.xyfa[2::3,:].T.mean(axis=1,out=sfa)
         savemat(filename, {
-            'x':   1e-6 * self.xy[::2].T,
-            'y':   1e-6 * self.xy[1::2].T,
-            'xfa': 1e-6 * self.xyfa[::2].T,
-            'yfa': 1e-6 * self.xyfa[1::2].T,
+            's':    s,
+            'x':   1e-6 * self.xy[::3,:].T,
+            'y':   1e-6 * self.xy[1::3,:].T,
+            'sfa':   sfa,
+            'xfa': 1e-6 * self.xyfa[::3].T,
+            'yfa': 1e-6 * self.xyfa[1::3].T,
 #            'good': self.good,
-            'time': time }, appendmat=True)
+            'time': time }, appendmat=True)    
 
     def reset(self):
         self.xy[:] = 0
@@ -198,7 +204,7 @@ pv_list = [
     'SR%02dC-DI-EBPM-%02d:PM:WF%c' % (cell, position, xy)
         for cell in range(1,25) 
         for position in range(1,8)
-        for xy in 'XY']
+        for xy in 'XYS']
 
 
 filter = Filter('liberafilter.mat')
