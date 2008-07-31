@@ -45,14 +45,20 @@ m = loadmat(filename)
 # splitting out the data and the timestamp
 utctime = m['time']
 # filtered postmortem data for x and y
-xfa=m['xfa']
-yfa=m['yfa']
-sfa=m['sfa']
+xfa = m['xfa']
+yfa = m['yfa']
+sfa = m['sfa']
 
+x_offset   = m['x_offset']
+y_offset   = m['y_offset']
+adc_offset = m['adc_offset']
 
+# Revolution frequency
 f_t = 533818.
 start = -15384000 / f_t
 stop = 999000. / f_t
+
+
 fa_turnbase = linspace(start, stop, len(xfa))
 # tt_turnbase = linspace(-500, 500, len(x))    
 xfa=xfa[-37:-1,:]
@@ -70,21 +76,33 @@ disptime = ['BPM postmortem for ',str(time.day),'/',str(time.month),'/',str(time
 disptime = ''.join(disptime)
 title(disptime)
 
+# #
+# # X position as an image
+# #
+# axes([0.1,0.08+0.45,0.35,0.3])
+# imshow(xfa, aspect='auto', interpolation=None)
+# axhline(y=18.3, color='r', ls='--')
+# for p in arange(24):
+#     axvline(x=p*7,color='grey', ls='--', alpha=0.5)
+# axis([0,168,len(fa_turnbase),0])
+# xticks(arange(24)*7,arange(24)+1)
+# yticks(arange(8)*5,floor(fa_turnbase[arange(8)*5]*10)/10)
+# xlabel('CIA number')
+# ylabel('<-- ms <--')
+
+#
+# Trigger overflow Offsets
+#
 axes([0.1,0.08+0.45,0.35,0.3])
-imshow(xfa, aspect='auto', interpolation=None)
-axhline(y=18.3, color='r', ls='--')
-for p in arange(24):
-    axvline(x=p*7,color='grey', ls='--', alpha=0.5)
-axis([0,168,len(fa_turnbase),0])
-xticks(arange(24)*7,arange(24)+1)
-yticks(arange(8)*5,floor(fa_turnbase[arange(8)*5]*10)/10)
-xlabel('CIA number')
-ylabel('<-- ms <--')
+plot(x_offset)
+plot(y_offset)
+plot(adc_offset)
 
-
+#
+# X positions as overlaid curves
+#
 axes([0.1,0.08,0.35,0.3])
 plot(fa_turnbase, xfa)
-hold
 plot(fa_turnbase,sfa,'b--')
 axvline(0)
 axhline(y=1, color='r', ls='--')
@@ -96,17 +114,23 @@ xlabel('ms relative to post mortem event')
 ylabel('X [mm]')
 title('    RF <--|--> MPS')
 
+#
+# Y position as an image
+#
 axes([0.6,0.08+0.45,0.35,0.3])
 imshow(yfa, aspect='auto', interpolation=None)
 axhline(y=18.3, color='r', ls='--')
 for p in arange(24):
     axvline(x=p*7,color='grey', ls='--', alpha=0.5)
-axis([0,168,len(fa_turnbase),0])
+axis([0,168,0,len(fa_turnbase)])
 xticks(arange(24)*7,arange(24)+1)
 yticks(arange(8)*5,floor(fa_turnbase[arange(8)*5]*10)/10)
 xlabel('CIA number')
 ylabel('<-- ms <--')
 
+#
+# Y positions as overlaid curves
+#
 axes([0.6,0.08,0.35,0.3])
 plot(fa_turnbase, yfa)
 hold
