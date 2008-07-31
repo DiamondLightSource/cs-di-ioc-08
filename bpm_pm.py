@@ -79,7 +79,7 @@ class Result:
         self.stamp = 0
         self.xy   = zeros((2, bpm_count, self.tt_length), dtype = float)
         self.xyfa = zeros((2, bpm_count, self.fa_length), dtype = float)
-        self.sfa  = zeros((bpm_count, self.fa_length), dtype = float)
+        self.s  = zeros((bpm_count, self.tt_length), dtype = float)
         self.offsets = zeros((3, bpm_count), dtype = int)
         
 
@@ -89,7 +89,7 @@ class Result:
         self.xyfa[xy, bpm] = self.filter.tt2fa(waveform)
         
     def update_s(self, waveform, bpm):
-        self.sfa[bpm] = self.filter.tt2fa(waveform)
+        self.s[bpm] = waveform[-1500:-500]
         
     def update_offset(self, index, bpm, offset):
         self.offsets[index, bpm] = offset
@@ -99,11 +99,11 @@ class Result:
         
 
     def write(self, time, filename):
-        sfa = self.sfa.mean(0)
+        s = self.s.mean(0)
         savemat(filename, dict(
             x =   1e-6 * self.xy[0].T,
             y =   1e-6 * self.xy[1].T,
-            sfa = sfa,
+            s = s,
             xfa = 1e-6 * self.xyfa[0].T,
             yfa = 1e-6 * self.xyfa[1].T,
             
@@ -116,7 +116,7 @@ class Result:
     def reset(self):
         self.xy[:] = 0
         self.xyfa[:] = 0
-        self.sfa[:] = 0
+        self.s[:] = 0
         self.offsets[:] = 0
 
 
