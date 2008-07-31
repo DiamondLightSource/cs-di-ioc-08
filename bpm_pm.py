@@ -14,27 +14,39 @@
 # Authors Alun Morgan and Michael Abbot
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from pkg_resources import require as Require
-    Require('cothread')
+    Require('numpy==1.1.0')
+    Require('cothread==1.9')
+
+
+# Controlling definitions
+POSTMORTEM_TIMEOUT = 20
+POSTMORTEM_TIMEOUT = 5
+
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
 # load the cothread library so that CA pays attention to it!
 import os, datetime, time
-os.environ["EPICS_CA_MAX_ARRAY_BYTES"] = "3000000"
+os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '3000000'
 
 import sys
 from cothread import *
 from cothread.catools import *
-from cothread.cothread import Timer
 from numpy import *
-from scipy.io import savemat,loadmat
+from scipy.io import savemat, loadmat
 from scipy.signal import lfilter
 
 from decimate import decimate
 
-PMDIR = "/home/ops/BPMs/BPM_postmortems"
-FNAME = "bpm_postmortem"
+
+DEBUG = 'D' in sys.argv
+
+if DEBUG:
+    PMDIR = '/tmp/BPM_postmortems'
+else:
+    PMDIR = '/home/ops/BPMs/BPM_postmortems'
+FNAME = 'bpm_postmortem'
 
 
 class Filter:
@@ -73,10 +85,8 @@ class Result:
           self.xyfa[index] = self.filter.tt2fa(waveform)
 
     def write(self, time, filename):
-        s = zeros([self.tt_length,1])
-        sfa = zeros([self.fa_length,1])
-        self.xy[2::3,:].T.mean(axis=1,out=s)
-        self.xyfa[2::3,:].T.mean(axis=1,out=sfa)
+        s   = self.xy  [2::3,:].T.mean(axis=1)
+        sfa = self.xyfa[2::3,:].T.mean(axis=1)
         savemat(filename, {
             's':    s,
             'x':   1e-6 * self.xy[::3,:].T,
@@ -90,6 +100,7 @@ class Result:
     def reset(self):
         self.xy[:] = 0
         self.xyfa[:] = 0
+
         
 
 class Saver:
@@ -111,6 +122,8 @@ class Saver:
         #self.stopwatch=Timer(5,self.mask_timeout()) 
         #self.stopwatch.cancel()
         #connect pvs
+
+        self.timer_running = False
 
         camonitor(
             self.pv_list, self.update_array_entry, format = FORMAT_TIME)      
@@ -136,9 +149,25 @@ class Saver:
        # self.stopwatch.cancel()
        # self.stopwatch=Timer(5,self.mask_timeout())
        
-        self.check_array()
+#        self.check_array()
+        self.StartTimer()
         
         sys.stderr.write('.')
+
+        
+    def StartTimer(self):
+        if not self.timer_running:
+            print 'Starting timer'
+            self.timer_running = True
+            Timer(POSTMORTEM_TIMEOUT, self.TimerTriggered)
+
+
+    def TimerTriggered(self):
+        print 'Timer triggered!'
+        self.timer_running = False
+        self.check_array()
+        self.reset()
+        
 
 
     def check_array(self):
@@ -162,7 +191,6 @@ class Saver:
                     self.write_result(
                         self.stamps[0],
                         self.filename(self.stamps[0]))
-                    self.reset()
                 else:
                     # If the timestamps don't match keep on watching until they
                     # do.
@@ -210,6 +238,6 @@ pv_list = [
 filter = Filter('liberafilter.mat')
 
 # save task
-if __name__ == "__main__":
+if __name__ == '__main__':
     Saver(pv_list, 2**14, filter)
     WaitForQuit()

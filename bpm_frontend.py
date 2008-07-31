@@ -2,7 +2,8 @@
 
 # This is the frontend for the BPM postmortem.
 from pkg_resources import require
-require('cothread==1.5')
+require('numpy==1.1.0')
+require('cothread==1.9')
 require('matplotlib==0.91.1')
 
 from cothread import *
@@ -14,20 +15,15 @@ from qt import *
 from scipy.io import loadmat
 import sys
 from datetime import datetime
-from bpm_pm_file_select import *
+
 
 path_to_files = '/home/ops/BPMs/BPM_postmortems/'
+path_to_files = '/tmp/BPM_postmortems'
 
-# if given an argument (whatever) will use file_list to find out the required filenames otherwise it will ask for a file through the browser.
-if len(sys.argv) == 7:
-    filenames = file_list(sys.argv[1],path_to_files,sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
-    print filenames
-elif len(sys.argv) == 2:
-    # takes the n newest files
-    filenames = file_list(sys.argv[1],path_to_files,'*','*','*','*')
-    print filenames
-else:
-    filenames = []
+# if given an argument (whatever) will use file_list to find out the required
+# filenames otherwise it will ask for a file through the browser.
+
+if len(sys.argv) == 1:
     # No filename specified, so prompt for filename!
     import tkFileDialog
     filename = tkFileDialog.askopenfilename(
@@ -35,44 +31,30 @@ else:
         filetypes = ['mat *.mat'])
     if not filename:
         sys.exit(1)
-    else:
-        filenames.append(filename)
-    print filenames    
+elif len(sys.argv) == 2:
+    filename = sys.argv[1]
+else:
+    print 'Unexpected extra arguments'
+    sys.exit(1)
         
-print 'Loading postmortem'
+print 'Loading postmortem', filename
 
 
-utctime = []
-xfa = []
-yfa = []
-sfa = []
-x = []
-y = []
-s = []
 
-for filename in filenames:
-    m = loadmat(filename)
-    # splitting out the data and the timestamp
-    utctime.append(m['time'])
-    # filtered postmortem data for x and y
-#    xfa.append(m['xfa'])
- #   yfa.append(m['yfa'])
-  #  sfa.append(m['sfa'])
- #   x.append(m['x'])
-  #  y.append(m['y'])
-  #  s.append(m['s'])
-    xfa=m['xfa']
-    yfa=m['yfa']
-    sfa=m['sfa']
-#    x=m['x']
- #   y=m['y']
-  #  s=m['s']
+m = loadmat(filename)
+# splitting out the data and the timestamp
+utctime = m['time']
+# filtered postmortem data for x and y
+xfa=m['xfa']
+yfa=m['yfa']
+sfa=m['sfa']
+
 
 f_t = 533818.
 start = -15384000 / f_t
 stop = 999000. / f_t
 fa_turnbase = linspace(start, stop, len(xfa))
-tt_turnbase = linspace(-500, 500, len(x))    
+# tt_turnbase = linspace(-500, 500, len(x))    
 xfa=xfa[-37:-1,:]
 yfa= yfa[-37:-1,:]
 sfa= sfa[-37:-1]
@@ -83,7 +65,7 @@ sfa = (sfa / max(sfa))*8 -4
 ioff()
 a = axes([0,0,1,0.93],axisbg='grey')
 setp(a,xticks=[],yticks=[])
-time = datetime.fromtimestamp(utctime[0])   
+time = datetime.fromtimestamp(utctime)   
 disptime = ['BPM postmortem for ',str(time.day),'/',str(time.month),'/',str(time.year),' at ',str(time.hour),':',str(time.minute),'.',str(time.second), ' UTC']
 disptime = ''.join(disptime)
 title(disptime)
