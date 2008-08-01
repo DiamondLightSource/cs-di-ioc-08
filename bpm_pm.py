@@ -72,6 +72,7 @@ class Filter:
 class Result:
     tt_length = 1000
     fa_length = 307
+    capture_length = 16384
     
     def __init__(self, bpm_count, filter):
         self.filter = filter
@@ -79,7 +80,7 @@ class Result:
         self.stamp = 0
         self.xy   = zeros((2, bpm_count, self.tt_length), dtype = float)
         self.xyfa = zeros((2, bpm_count, self.fa_length), dtype = float)
-        self.s  = zeros((bpm_count, self.tt_length), dtype = float)
+        self.s  = zeros((bpm_count, self.capture_length), dtype = float)
         self.offsets = zeros((3, bpm_count), dtype = int)
         
 
@@ -89,7 +90,7 @@ class Result:
         self.xyfa[xy, bpm] = self.filter.tt2fa(waveform)
         
     def update_s(self, waveform, bpm):
-        self.s[bpm] = waveform[-1500:-500]
+        self.s[bpm] = waveform
         
     def update_offset(self, index, bpm, offset):
         self.offsets[index, bpm] = offset
