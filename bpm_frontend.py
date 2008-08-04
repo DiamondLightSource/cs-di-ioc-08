@@ -79,9 +79,9 @@ ttonfa = interp1d(faasturns,fa_turnbase)
 ttonfa_turnbase = ttonfa(linspace(faasturns_start,faasturns_stop,faasturns_stop-faasturns_start))
 
 # code to flag up if there has been an ADC overflow
-overflow = min(adc_offset)-1250 # -1250 for testing purposes only
-
-
+# removing zeros as this means that the libera was rebooted (only a problem for initial dataset)
+flow_remove_0 = adc_offset != 0
+overflow = min(adc_offset[flow_remove_0])
 
 ioff()
 
@@ -97,13 +97,16 @@ title(disptime)
 #
 # X positions as overlaid curves
 #
-axes([0.1,0.08+0.45,0.35,0.3])
+axes([0.07,0.08+0.45,0.40,0.35])
 plot(fa_turnbase, xfa)
 plot(ttonfa_turnbase,s,'b--')
-axvline(0)
+axvline(0, color='g')
 axhline(y=1, color='r', ls='--')
 axhline(y=-1, color='r', ls='--')
 axis([fa_turnbase[0],fa_turnbase[len(fa_turnbase)-1],-5, 5])
+annotate('Current',xy=(fa_turnbase[50],4),xytext=(fa_turnbase[2],4.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+annotate('MPS\nlimit',xy=(fa_turnbase[50],1),xytext=(fa_turnbase[4],1.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+annotate('MPS\nlimit',xy=(fa_turnbase[50],-1),xytext=(fa_turnbase[4],-2),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
 xlabel('ms relative to post mortem event')
 ylabel('X [mm]')
 #title('    RF <--|--> MPS')
@@ -112,13 +115,16 @@ ylabel('X [mm]')
 #
 # Y positions as overlaid curves
 #
-axes([0.6,0.08+0.45,0.35,0.3])
+axes([0.55,0.08+0.45,0.40,0.35])
 plot(fa_turnbase, yfa)
 plot(ttonfa_turnbase,s,'b--')
-axvline(0)
+axvline(0, color='g')
 axhline(y=1, color='r', ls='--')
 axhline(y=-1, color='r', ls='--')
 axis([fa_turnbase[0],fa_turnbase[len(fa_turnbase)-1],-5, 5])
+annotate('Current',xy=(fa_turnbase[50],4),xytext=(fa_turnbase[2],4.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+annotate('MPS\nlimit',xy=(fa_turnbase[50],1),xytext=(fa_turnbase[4],1.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+annotate('MPS\nlimit',xy=(fa_turnbase[50],-1),xytext=(fa_turnbase[4],-2),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
 xlabel('ms relative to post mortem event')
 ylabel('Y [mm]')
 #title('    RF <--|--> MPS')
@@ -126,40 +132,46 @@ ylabel('Y [mm]')
 #
 # X positions as overlaid curves
 #
-axes([0.1,0.08,0.35,0.3])
+axes([0.07,0.08,0.40,0.35])
 plot(tt_turnbase, x)
 plot(tt_turnbase,s[len(s)-1500:len(s)-500],'b--')
 # putting in a line to show where the ADC overflow happened
 if overflow != capture_length:
-    # TODO need to add annotation to line
-    axvline(x=overflow-(capture_length-1000),color='r')
-# TODO need to add annotation to line (to enable removal of title)
-axvline(0)
+    overflow_pos = overflow-(capture_length-1000)
+    axvline(x=overflow_pos,color='r')
+    annotate('ADC\noverflow',xy=(overflow_pos,1.5),xytext=(-490,2.5),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+#text(-80,4.6,'<- RF')
+#text(10,4.6,'MPS ->')
+annotate('Current',xy=(-300,4),xytext=(-490,4.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+axvline(0, color='g')
 axhline(y=1, color='r', ls='--')
 axhline(y=-1, color='r', ls='--')
 axis([-500,500,-5, 5])
 xlabel('turns relative to post mortem event')
 ylabel('X [mm]')
-title('    RF <--|--> MPS')
+#title('    RF <--|--> MPS')
 
 #
 # Y positions as overlaid curves
 #
-axes([0.6,0.08,0.35,0.3])
+axes([0.55,0.08,0.40,0.35])
 plot(tt_turnbase, y)
 plot(tt_turnbase,s[len(s)-1500:len(s)-500],'b--')
 # putting in a line to show where the ADC overflow happened
 if overflow != capture_length:
-    # TODO need to add annotation to line
-    axvline(x=overflow-(capture_length-1000),color='r')
-# TODO need to add annotation to line (to enable removal of title)
-axvline(0)
+    overflow_pos = overflow-(capture_length-1000)
+    axvline(x=overflow_pos,color='r')
+    annotate('ADC\noverflow',xy=(overflow_pos,1.5),xytext=(-490,2.5),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+#text(-80,4.6,'<- RF')
+#text(10,4.6,'MPS ->')
+annotate('Current',xy=(-300,4),xytext=(-490,4.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+axvline(0, color='g')
 axhline(y=1, color='r', ls='--')
 axhline(y=-1, color='r', ls='--')
 axis([-500,500,-5, 5])
 xlabel('turns relative to post mortem event')
 ylabel('Y [mm]')
-title('    RF <--|--> MPS')
+#title('    RF <--|--> MPS')
 
 
 figure(2)
@@ -173,7 +185,7 @@ title(disptime)
 #
 # Trigger overflow Offsets
 #
-axes([0.1,0.08,0.35,0.3])
+axes([0.07,0.08,0.40,0.32])
 plot(x_offset,linspace(1,168,168),'.')
 plot(y_offset,linspace(1,168,168),'.')
 plot(adc_offset,linspace(1,168,168),'.')
@@ -188,22 +200,23 @@ title('Times overflows triggered \n (x=blue y=green ADC=red)')
 
 
 # S (intensity)
-axes([0.6,0.08,0.35,0.3])
+axes([0.55,0.08,0.40,0.32])
 plot(linspace(-(capture_length-1000),1000,capture_length),s,'k')
 yticks([-4,-2,0,2,4],[0,0.25,0.5,0.75,1])
 axhline(y=-2, color='grey', ls='--', alpha=0.5)
 axhline(y=0, color='grey', ls='--', alpha=0.5)
 axhline(y=2, color='grey', ls='--', alpha=0.5)
 axvline(0)
+axis([-(capture_length-1000),1000,-4.4,4.4])
 xlabel('turns relative to post mortem event')
 ylabel('Intensity')
-title('    RF <--|--> MPS')
+#title('    RF <--|--> MPS')
 
 #
 # X position as an image
 #
-axes([0.1,0.08+0.45,0.35,0.3])
-imshow(x, aspect='auto', interpolation=None)
+axes([0.07,0.08+0.45,0.40,0.35])
+imshow(abs(x), aspect='auto', interpolation=None)
 axhline(y=500, color='r', ls='--')
 for p in arange(24):
     axvline(x=p*7,color='grey', ls='--', alpha=0.5)
@@ -216,8 +229,8 @@ ylabel('<-- turns <--')
 #
 # Y position as an image
 #
-axes([0.6,0.08+0.45,0.35,0.3])
-imshow(y, aspect='auto', interpolation=None)
+axes([0.55,0.08+0.45,0.40,0.35])
+imshow(abs(y), aspect='auto', interpolation=None)
 axhline(y=500, color='r', ls='--')
 for p in arange(24):
     axvline(x=p*7,color='grey', ls='--', alpha=0.5)

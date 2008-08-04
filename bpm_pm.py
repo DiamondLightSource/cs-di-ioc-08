@@ -82,6 +82,7 @@ class Result:
         self.xyfa = zeros((2, bpm_count, self.fa_length), dtype = float)
         self.s  = zeros((bpm_count, self.capture_length), dtype = float)
         self.offsets = zeros((3, bpm_count), dtype = int)
+#        self.good = ones((bpm_count, self.capture_length), dtype = int)
         
 
     def update_xy(self, xy, bpm, waveform):
@@ -95,23 +96,58 @@ class Result:
     def update_offset(self, index, bpm, offset):
         self.offsets[index, bpm] = offset
 
+#    def update_good(self, bpm, offset):
+#        self.good[bpm] = offset
+
     def timestamp(self):
         return self.stamp
         
+    def RemoveDisabled(self):
+    # Getting the enabled/disabled status of the BPMs from the concentrator
+        self.good = caget('SR-DI-EBPM-01:ENABLED')
+        good = self.good > 0
+        s =   self.s
+        x =   1e-6 * self.xy[0]
+        y =   1e-6 * self.xy[1]
+        xfa = 1e-6 * self.xyfa[0]
+        yfa = 1e-6 * self.xyfa[1]
+        x_offset = self.offsets[0]
+        y_offset = self.offsets[1]
+        adc_offset = self.offsets[2]
+        
 
+        good_select = good == False
+        # remove the bad BPM data
+        s = s[good_select]   
+        #setting the data for the disabled position to NaN 
+        x[good] = NaN
+        y[good] = NaN
+        xfa[good] = NaN        
+        yfa[good] = NaN
+        x_offset[good] = NaN
+        y_offset[good] = NaN
+        adc_offset[good] = NaN
+        
+        # getting things in the correct format for writing
+        self.s_out = s.mean(0)
+        self.x = x.T
+        self.y = y.T
+        self.xfa = xfa.T
+        self.yfa = yfa.T
+        self.x_offset = x_offset
+        self.y_offset = y_offset
+        self.adc_offset = adc_offset
+                                
     def write(self, time, filename):
-        s = self.s.mean(0)
-        savemat(filename, dict(
-            x =   1e-6 * self.xy[0].T,
-            y =   1e-6 * self.xy[1].T,
-            s = s,
-            xfa = 1e-6 * self.xyfa[0].T,
-            yfa = 1e-6 * self.xyfa[1].T,
-            
-            x_offset = self.offsets[0],
-            y_offset = self.offsets[1],
-            adc_offset = self.offsets[2],
-#            good = self.good,
+       savemat(filename, dict(
+            x = self.x,
+            y = self.y,
+            s = self.s_out,
+            xfa = self.xfa,
+            yfa = self.yfa,
+            x_offset = self.x_offset,
+            y_offset = self.y_offset,
+            adc_offset = self.adc_offset,
             time = time ), appendmat=True)    
 
     def reset(self):
@@ -129,7 +165,7 @@ class Saver:
     TIMER_QUIESCENT = 2     # Ignoring further updates for a bit...
 
     # object constructor
-    def __init__(self, filter, xy_pvs, s_pvs, offset_pvs):
+    def __init__(self, filter, xy_pvs, s_pvs, offset_pvs, good_pvs):
         self.results = Result(len(s_pvs), filter)
 
         self.timer_state = self.TIMER_OFF
@@ -156,6 +192,7 @@ class Saver:
         sys.stderr.write('<')
         if self.StartTimer():
             self.results.update_s(waveform, bpm)
+            
 
         
     def StartTimer(self):
@@ -171,8 +208,8 @@ class Saver:
     def CaptureComplete(self):
         print 'Capture complete triggered!'
         self.timer_state = self.TIMER_QUIESCENT
-
         # Write out whatever we have now.
+        self.results.RemoveDisabled()
         self.write_result()
         self.results.reset()
 
@@ -184,7 +221,6 @@ class Saver:
         print 'Quiescent complete triggered'
         self.timer_state = self.TIMER_OFF
         
-
     def filename(self, new_value):
         # Computes the filename from the timestamp.
         timestamp = datetime.datetime.utcfromtimestamp(new_value)
@@ -217,10 +253,11 @@ def PVs(name):
 xy_pvs = [PVs('WFX'), PVs('WFY')]
 offset_pvs = [PVs('%s_OFFSET' % name) for name in ['X', 'Y', 'ADC']]
 s_pvs = PVs('WFS')
+good_pvs = PVs('CF:ENABLED_S')
 
 filter = Filter('liberafilter.mat')
 
 # save task
 if __name__ == '__main__':
-    Saver(filter, xy_pvs, s_pvs, offset_pvs)
+    Saver(filter, xy_pvs, s_pvs, offset_pvs, good_pvs)
     WaitForQuit()
