@@ -2,15 +2,8 @@
 
 # This is the postmortem back end for the BPMs
 #
-# The program waits for a reponse on all the monitored channels, then it
-# checks the time stamps are all the same. If not it will continue waiting
-# checking the timestamps each time a channel is updated. Once all timestamps
-# agree the data is written to a mat file. The program then waits for 5 sec
-# before looking again.  The program masks out data with timestamps before 1
-# jan 1990 as this indicates a machine has been restarted after the postmortem
-# signal occured.
+# The program waits for POSTMORTEM_TIMEOUT and then returns the data it has recieved. It uses the good/bad data from the concentrator to remove spurious data.
 #
-# Currently it can't cope with a nonresponsive machine ( adding a timeout)
 # Authors Alun Morgan and Michael Abbot
 
 
@@ -82,8 +75,6 @@ class Result:
         self.xyfa = zeros((2, bpm_count, self.fa_length), dtype = float)
         self.s  = zeros((bpm_count, self.capture_length), dtype = float)
         self.offsets = zeros((3, bpm_count), dtype = int)
-#        self.good = ones((bpm_count, self.capture_length), dtype = int)
-        
 
     def update_xy(self, xy, bpm, waveform):
         self.stamp = waveform.timestamp
@@ -95,9 +86,6 @@ class Result:
         
     def update_offset(self, index, bpm, offset):
         self.offsets[index, bpm] = offset
-
-#    def update_good(self, bpm, offset):
-#        self.good[bpm] = offset
 
     def timestamp(self):
         return self.stamp
@@ -192,9 +180,7 @@ class Saver:
         sys.stderr.write('<')
         if self.StartTimer():
             self.results.update_s(waveform, bpm)
-            
-
-        
+                    
     def StartTimer(self):
         if self.timer_state == self.TIMER_QUIESCENT:
             # In quiescent state ignore everything
@@ -221,9 +207,9 @@ class Saver:
         print 'Quiescent complete triggered'
         self.timer_state = self.TIMER_OFF
         
-    def filename(self, new_value):
+    def filename(self, time):
         # Computes the filename from the timestamp.
-        timestamp = datetime.datetime.utcfromtimestamp(new_value)
+        timestamp = datetime.datetime.utcfromtimestamp(time)
         dirname = '%4d-%02d' % (timestamp.year, timestamp.month)
         dirname = os.path.join(PMDIR, dirname)
         datestring = timestamp.replace(microsecond = 0).isoformat()

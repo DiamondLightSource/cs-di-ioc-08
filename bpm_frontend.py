@@ -16,6 +16,7 @@ from scipy.io import loadmat
 from scipy.interpolate import *
 import sys
 from datetime import datetime
+from matplotlib.lines import Line2D
 
 
 path_to_files = '/home/ops/BPMs/BPM_postmortems/'
@@ -83,22 +84,45 @@ ttonfa_turnbase = ttonfa(linspace(faasturns_start,faasturns_stop,faasturns_stop-
 flow_remove_0 = adc_offset != 0
 overflow = min(adc_offset[flow_remove_0])
 
+# Generating the main title
+time = datetime.utcfromtimestamp(utctime)  
+disptime = 'BPM postmortem for %02d/%02d/%04d at %02d:%02d.%02d' %( time.day, time.month, time.year, time.hour, time.minute, time.second)
+
+# this function will be called when one of the picker Artists is
+# clicked on
+def onpick1(event) :
+    if isinstance(event.artist, Line2D ):
+        xdata=event.artist.get_xdata()
+        ydata=event.artist.get_ydata()
+        ind=event.ind
+        bpm_num = event.artist._xcid -2
+        x_point = xdata[ind].data[0]
+        y_point = ydata[ind].data[0]
+        x_string = str(x_point)[0:4]
+        y_string = str(y_point)[0:4]
+#        print thisline.__dict__
+#        print event.__dict__
+#        print event.canvas
+##        print event.artist
+#        print event.ind
+#        print event.mouseevent
+        out_string = 'line %s\nBPM %d\nx %04s\ny %04s' %(event.artist,bpm_num, x_string, y_string)
+        print out_string
+        ax.annotate(out_string, xy=(x_point,y_point), xytext=(0.05, 0.3), textcoords='axes fraction',arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5), horizontalalignment='left', verticalalignment='top')
+        
+
 ioff()
 
-figure(1)
+fig1 = figure(1)
 a = axes([0,0,1,0.93],axisbg='grey')
 setp(a,xticks=[],yticks=[])
-time = datetime.fromtimestamp(utctime)   
-disptime = ['BPM postmortem for ',str(time.day),'/',str(time.month),'/',str(time.year),' at ',str(time.hour),':',str(time.minute),'.',str(time.second), ' UTC']
-disptime = ''.join(disptime)
 title(disptime)
-
 
 #
 # X positions as overlaid curves
 #
-axes([0.07,0.08+0.45,0.40,0.35])
-plot(fa_turnbase, xfa)
+ax = axes([0.07,0.08+0.45,0.40,0.35])
+plot(fa_turnbase, xfa,picker=2)
 plot(ttonfa_turnbase,s,'b--')
 axvline(0, color='g')
 axhline(y=1, color='r', ls='--')
@@ -109,6 +133,8 @@ annotate('MPS\nlimit',xy=(fa_turnbase[50],1),xytext=(fa_turnbase[4],1.4),arrowpr
 annotate('MPS\nlimit',xy=(fa_turnbase[50],-1),xytext=(fa_turnbase[4],-2),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
 xlabel('ms relative to post mortem event')
 ylabel('X [mm]')
+# register for callback
+fig1.canvas.mpl_connect('pick_event', onpick1)
 #title('    RF <--|--> MPS')
 
 
@@ -177,9 +203,6 @@ ylabel('Y [mm]')
 figure(2)
 a = axes([0,0,1,0.93],axisbg='grey')
 setp(a,xticks=[],yticks=[])
-time = datetime.fromtimestamp(utctime)   
-disptime = ['BPM postmortem for ',str(time.day),'/',str(time.month),'/',str(time.year),' at ',str(time.hour),':',str(time.minute),'.',str(time.second), ' UTC']
-disptime = ''.join(disptime)
 title(disptime)
 
 #
