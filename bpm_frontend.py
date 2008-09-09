@@ -39,7 +39,7 @@ elif len(sys.argv) == 2:
 else:
     print 'Unexpected extra arguments'
     sys.exit(1)
-        
+
 print 'Loading postmortem', filename
 
 
@@ -64,7 +64,7 @@ y_offset   = m['y_offset']
 adc_offset = m['adc_offset']
 
 # turn by turn x axis
-tt_turnbase = linspace(-500, 500, len(x))    
+tt_turnbase = linspace(-500, 500, len(x))
 # Revolution frequency (Hz)
 f_t = 533818.
 # full time x axis
@@ -77,127 +77,192 @@ faasturns    =    fa_turnbase*f_t/1000
 faasturns_start = ceil(faasturns[0])
 faasturns_stop  = floor(faasturns[len(faasturns)-1])
 ttonfa = interp1d(faasturns,fa_turnbase)
-ttonfa_turnbase = ttonfa(linspace(faasturns_start,faasturns_stop,faasturns_stop-faasturns_start))
+ttonfa_turnbase = ttonfa(linspace(faasturns_start,faasturns_stop,faasturns_stop-
+faasturns_start))
 
 # code to flag up if there has been an ADC overflow
-# removing zeros as this means that the libera was rebooted (only a problem for initial dataset)
+# removing zeros as this means that the libera was rebooted (only a problem for
+# initial dataset)
 flow_remove_0 = adc_offset != 0
 overflow = min(adc_offset[flow_remove_0])
 
 # Generating the main title
-time = datetime.utcfromtimestamp(utctime)  
-disptime = 'BPM postmortem for %02d/%02d/%04d at %02d:%02d.%02d' %( time.day, time.month, time.year, time.hour, time.minute, time.second)
+time = datetime.utcfromtimestamp(utctime)
+disptime = 'BPM postmortem for %02d/%02d/%04d at %02d:%02d.%02d' %( time.day,
+time.month, time.year, time.hour, time.minute, time.second)
+# class PointBrowser:
+#     """
+#     Click on a point to select and highlight it -- the data that
+#     generated the point will be shown in the lower axes.  Use the 'n'
+#     and 'p' keys to browse through the next and pervious points
+#     """
+#     def __init__(self):
+#         self.lastind = 0
+#
+#     def onpress(self, event):
+#         if self.lastind is None:
+#             return
+#         if event.key not in ('n', 'p'):
+#             return
+#         if event.key=='n':
+#             inc = 1
+#         else:
+#             inc = -1
+#
+#         self.lastind += inc
+#         self.lastind = clip(self.lastind, 0, len(xs)-1)
+#         self.update()
+#
+#     def onpick(self, event):
+#
+#        if not isinstance(event.artist, Line2D ):
+#            print 'not line'
+#            return True
+#
+#        N = len(event.ind)
+#        if not N:
+#            print 'No N'
+#            return True
+#
+#        # the click locations
+#        x = event.mouseevent.xdata
+#        y = event.mouseevent.ydata
+#
+#        xdata=event.artist._x
+#        ydata=event.artist._y
+#
+#        distances = hypot(x-xdata[event.ind], y-ydata[event.ind])
+#        indmin = distances.argmin()
+#        dataind = event.ind[indmin]
+#
+#        self.xs = xdata[dataind]
+#        self.ys = ydata[dataind]
+#        self.ap_num = event.artist._xcid -2
+#
+#        self.lastind = dataind
+#        self.update()
+#
+#     def update(self):
+#         if self.lastind is None:
+#             return
+#
+#         dataind = self.lastind
+#         xs = self.xs
+#         ys = self.ys
+#
+# #         ax.plot(X[dataind])
+#         ap_num = self.ap_num
+#         cia_num = ap_num//7 + 1
+#         bpm_num = ap_num%7
+#         x_string = str(xs)[0:4]
+#         y_string = str(ys)[0:4]
+#         out_string = 'BPM %d,%d\nx %04s\ny %04s' %(cia_num, bpm_num, x_string,
+# y_string)
+#         print out_string
+#         ax.annotate(out_string, xy=(xs,ys), xytext=(0.02,
+# 0.25), textcoords='axes fraction',arrowprops=dict(facecolor='black',
+# shrink=0.05,width=1, frac=0.1, headwidth=5), horizontalalignment='left',
+# verticalalignment='top')
+# #         self.selected.set_visible(True)
+# #         self.selected.set_data(xs[dataind], ys[dataind])
+# #         self.text.set_text('selected: %d'%dataind)
+#         fig1.canvas.draw()
 
 # this function will be called when one of the picker Artists is
 # clicked on
-def onpick1(event) :
-    if isinstance(event.artist, Line2D ):
-        xdata=event.artist.get_xdata()
-        ydata=event.artist.get_ydata()
-        ind=event.ind
-        bpm_num = event.artist._xcid -2
-        x_point = xdata[ind].data[0]
-        y_point = ydata[ind].data[0]
-        x_string = str(x_point)[0:4]
-        y_string = str(y_point)[0:4]
-#        print thisline.__dict__
-#        print event.__dict__
-#        print event.canvas
-##        print event.artist
-#        print event.ind
-#        print event.mouseevent
-        out_string = 'line %s\nBPM %d\nx %04s\ny %04s' %(event.artist,bpm_num, x_string, y_string)
-        print out_string
-        ax.annotate(out_string, xy=(x_point,y_point), xytext=(0.05, 0.3), textcoords='axes fraction',arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5), horizontalalignment='left', verticalalignment='top')
-        
+def onclick(event) :
+#    if isinstance(event.artist, Line2D ):
+       ax.cla() # need to fix axis selection
+       fa_plotting(fa_turnbase, xfa,ttonfa_turnbase,s)
+# the click locations
+       x = event.xdata
+       y = event.ydata
+       inaxes = event.inaxes
+       x_string = str(x)[0:4]
+       y_string = str(y)[0:4]
+       out_string = 'x %s \ny %s' %(x_string, y_string)
+       ax.annotate(out_string, xy=(x,y), xytext=(0.02,
+0.25), textcoords='axes fraction',arrowprops=dict(facecolor='black',
+shrink=0.05, width=1, frac=0.1, headwidth=5),horizontalalignment='left',
+verticalalignment='top')
 
+#        xdata=event.artist._x
+#        ydata=event.artist._y
+# # Finds which of the returned data points was closest to the mouse click
+#        distances = hypot(x-xdata[event.ind], y-ydata[event.ind])
+#        indmin = distances.argmin()
+#        dataind = event.ind[indmin]
+#        ap_num = event.artist._xcid -2
+#        cia_num = ap_num//7 + 1
+#        bpm_num = ap_num%7
+#        x_point = xdata[dataind]
+#        y_point = ydata[dataind]
+#        x_string = str(x_point)[0:4]
+#        y_string = str(y_point)[0:4]
+#        out_string = 'BPM %d,%d\nx %04s\ny %04s' %(cia_num, bpm_num, x_string,
+# y_string)
+#        print out_string
+#        ax.annotate(out_string, xy=(x_point,y_point), xytext=(0.02, 0.25),
+# textcoords='axes fraction',arrowprops=dict(facecolor='black', shrink=0.05,
+# width=1, frac=0.1, headwidth=5), horizontalalignment='left',
+# verticalalignment='top')
+
+# browser = PointBrowser()
 ioff()
+
+def fa_plotting(x1, y1, x2, y2):
+    plot(x1,y1,picker=5)
+    plot(x2,y2,'b--')
+    axvline(0, color='g')
+    axhline(y=1, color='r', ls='--')
+    axhline(y=-1, color='r', ls='--')
+    axis([x1[0],x1[len(x1)-1],-5, 5])
+    annotate('Current',xy=(x1[50],4),xytext=(x1[2],4.4),arrowprops =dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+    annotate('MPS\nlimit',xy=(x1[50],1),xytext=(x1[4],1.4), arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+    annotate('MPS\nlimit',xy=(x1[50],-1),xytext=(x1[4],-2), arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+    xlabel('ms relative to post mortem event')
+    ylabel('X [mm]')
+
+def tt_plotting(x1, y1, x2, y2, overflow):
+    plot(x1,y1)
+    plot(x2,y2[len(s)-1500:len(s)-500],'b--')
+    # putting in a line to show where the ADC overflow happened
+    if overflow != capture_length:
+        overflow_pos = overflow-(capture_length-1000)
+        axvline(x=overflow_pos,color='r')
+        annotate('ADC\noverflow',xy=(overflow_pos,1.5),xytext=(-490,2.5),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+    annotate('Current',xy=(-300,4),xytext=(-490,4.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
+    axvline(0, color='g')
+    axhline(y=1, color='r', ls='--')
+    axhline(y=-1, color='r', ls='--')
+    axis([-500,500,-5, 5])
+    xlabel('turns relative to post mortem event')
+    ylabel('X [mm]')
+
+
 
 fig1 = figure(1)
 a = axes([0,0,1,0.93],axisbg='grey')
 setp(a,xticks=[],yticks=[])
 title(disptime)
 
-#
 # X positions as overlaid curves
-#
 ax = axes([0.07,0.08+0.45,0.40,0.35])
-plot(fa_turnbase, xfa,picker=2)
-plot(ttonfa_turnbase,s,'b--')
-axvline(0, color='g')
-axhline(y=1, color='r', ls='--')
-axhline(y=-1, color='r', ls='--')
-axis([fa_turnbase[0],fa_turnbase[len(fa_turnbase)-1],-5, 5])
-annotate('Current',xy=(fa_turnbase[50],4),xytext=(fa_turnbase[2],4.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-annotate('MPS\nlimit',xy=(fa_turnbase[50],1),xytext=(fa_turnbase[4],1.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-annotate('MPS\nlimit',xy=(fa_turnbase[50],-1),xytext=(fa_turnbase[4],-2),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-xlabel('ms relative to post mortem event')
-ylabel('X [mm]')
+fa_plotting(fa_turnbase, xfa,ttonfa_turnbase,s)
 # register for callback
-fig1.canvas.mpl_connect('pick_event', onpick1)
-#title('    RF <--|--> MPS')
+fig1.canvas.mpl_connect('button_press_event', onclick)
 
-
-#
 # Y positions as overlaid curves
-#
 axes([0.55,0.08+0.45,0.40,0.35])
-plot(fa_turnbase, yfa)
-plot(ttonfa_turnbase,s,'b--')
-axvline(0, color='g')
-axhline(y=1, color='r', ls='--')
-axhline(y=-1, color='r', ls='--')
-axis([fa_turnbase[0],fa_turnbase[len(fa_turnbase)-1],-5, 5])
-annotate('Current',xy=(fa_turnbase[50],4),xytext=(fa_turnbase[2],4.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-annotate('MPS\nlimit',xy=(fa_turnbase[50],1),xytext=(fa_turnbase[4],1.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-annotate('MPS\nlimit',xy=(fa_turnbase[50],-1),xytext=(fa_turnbase[4],-2),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-xlabel('ms relative to post mortem event')
-ylabel('Y [mm]')
-#title('    RF <--|--> MPS')
+fa_plotting(fa_turnbase, yfa,ttonfa_turnbase,s)
 
-#
 # X positions as overlaid curves
-#
 axes([0.07,0.08,0.40,0.35])
-plot(tt_turnbase, x)
-plot(tt_turnbase,s[len(s)-1500:len(s)-500],'b--')
-# putting in a line to show where the ADC overflow happened
-if overflow != capture_length:
-    overflow_pos = overflow-(capture_length-1000)
-    axvline(x=overflow_pos,color='r')
-    annotate('ADC\noverflow',xy=(overflow_pos,1.5),xytext=(-490,2.5),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-#text(-80,4.6,'<- RF')
-#text(10,4.6,'MPS ->')
-annotate('Current',xy=(-300,4),xytext=(-490,4.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-axvline(0, color='g')
-axhline(y=1, color='r', ls='--')
-axhline(y=-1, color='r', ls='--')
-axis([-500,500,-5, 5])
-xlabel('turns relative to post mortem event')
-ylabel('X [mm]')
-#title('    RF <--|--> MPS')
+tt_plotting(tt_turnbase, x,tt_turnbase,s,overflow)
 
-#
 # Y positions as overlaid curves
-#
 axes([0.55,0.08,0.40,0.35])
-plot(tt_turnbase, y)
-plot(tt_turnbase,s[len(s)-1500:len(s)-500],'b--')
-# putting in a line to show where the ADC overflow happened
-if overflow != capture_length:
-    overflow_pos = overflow-(capture_length-1000)
-    axvline(x=overflow_pos,color='r')
-    annotate('ADC\noverflow',xy=(overflow_pos,1.5),xytext=(-490,2.5),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-#text(-80,4.6,'<- RF')
-#text(10,4.6,'MPS ->')
-annotate('Current',xy=(-300,4),xytext=(-490,4.4),arrowprops=dict(facecolor='black', shrink=0.05, width=1, frac=0.1, headwidth=5))
-axvline(0, color='g')
-axhline(y=1, color='r', ls='--')
-axhline(y=-1, color='r', ls='--')
-axis([-500,500,-5, 5])
-xlabel('turns relative to post mortem event')
-ylabel('Y [mm]')
-#title('    RF <--|--> MPS')
+tt_plotting(tt_turnbase, y,tt_turnbase,s,overflow)
 
 
 figure(2)
