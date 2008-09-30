@@ -19,8 +19,8 @@ from datetime import datetime
 from matplotlib.lines import Line2D
 
 
-path_to_files = '/home/ops/BPMs/BPM_postmortems/'
-path_to_files = '/tmp/BPM_postmortems'
+path_to_files = '/dls/ops-data/Postmortems/BPM_postmortems/'
+#path_to_files = '/tmp/BPM_postmortems'
 capture_length = 16384
 
 # if given an argument (whatever) will use file_list to find out the required

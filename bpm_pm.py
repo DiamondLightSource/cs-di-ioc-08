@@ -38,7 +38,7 @@ DEBUG = 'D' in sys.argv
 if DEBUG:
     PMDIR = '/tmp/BPM_postmortems'
 else:
-    PMDIR = '/home/ops/BPMs/BPM_postmortems'
+    PMDIR = '/dls/ops-data/Postmortems/BPM_postmortems'
 FNAME = 'bpm_postmortem'
 
 
