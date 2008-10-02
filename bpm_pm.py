@@ -23,6 +23,7 @@ QUIESCENT_TIMEOUT = 120
 import os, datetime, time
 os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '1000000'
 
+import elog
 import sys
 from cothread import *
 from cothread.catools import *
@@ -127,7 +128,7 @@ class Result:
         self.adc_offset = adc_offset
                                 
     def write(self, time, filename):
-       savemat(filename, dict(
+        savemat(filename, dict(
             x = self.x,
             y = self.y,
             s = self.s_out,
@@ -136,7 +137,13 @@ class Result:
             x_offset = self.x_offset,
             y_offset = self.y_offset,
             adc_offset = self.adc_offset,
-            time = time ), appendmat=True)    
+            time = time ), appendmat=True)  
+        # Adding an entry into elog
+        rel_path = os.path.dirname(__file__)
+        where = os.path.abspath(rel_path)
+        pm_message = "Saved in " + filename + "\n" + "Run the following command in a terminal window to view it.\n" + where + "/bpm_frontend " + filename
+        elog.entry('BPM postmortem recorded', pm_message)
+        
 
     def reset(self):
         self.xy[:] = 0
