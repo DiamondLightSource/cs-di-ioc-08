@@ -63,6 +63,23 @@ x_offset   = m['x_offset']
 y_offset   = m['y_offset']
 adc_offset = m['adc_offset']
 
+try:
+    disabled = m['enabled'] == 0
+except KeyError:
+    # For backwards compatibility
+    disabled = zeros(168, dtype = bool)
+else:
+    # If an enabled array was given, use it to knock out all the disabled
+    # values.
+    for a in (x, y, xfa, yfa):
+        a[:,disabled] = NaN
+    for a in (x_offset, y_offset, adc_offset):
+        a[disabled] = NaN
+
+# convert the offsets into trigger relative offsets
+for a in (x_offset, y_offset, adc_offset):
+    a -= 15384
+
 # turn by turn x axis
 tt_turnbase = linspace(-500, 500, len(x))
 # Revolution frequency (Hz)
@@ -279,9 +296,9 @@ plot(y_offset,linspace(1,168,168),'.')
 plot(adc_offset,linspace(1,168,168),'.')
 for p in arange(24):
     axhline(y=p*7,color='grey', ls='--', alpha=0.5)
-axis([capture_length-1000,capture_length,0,168])
+axvline(x=0, color='grey')
+axis([-100, 500, 0, 168])
 yticks(arange(24)*7,arange(24)+1)
-xticks(arange(11)*100+15384,arange(11)*100-500)
 xlabel('Turns')
 ylabel('CIA number')
 title('Times overflows triggered \n (x=blue y=green ADC=red)')

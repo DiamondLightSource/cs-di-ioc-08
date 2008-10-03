@@ -43,6 +43,14 @@ else:
 FNAME = 'bpm_postmortem'
 
 
+# The following message is written to e-log on successful writing of a
+# postmortem file.
+PM_MESSAGE = \
+    "Saved in %(filename)s\n" + \
+    "Run the following command in a terminal window to view it.\n" + \
+    "%(where)s/bpm_frontend %(filename)s" 
+
+
 class Filter:
     def __init__(self, filename):
         taps = loadmat(filename)
@@ -72,10 +80,11 @@ class Result:
         self.filter = filter
         
         self.stamp = 0
-        self.xy   = zeros((2, bpm_count, self.tt_length), dtype = float)
-        self.xyfa = zeros((2, bpm_count, self.fa_length), dtype = float)
-        self.s  = zeros((bpm_count, self.capture_length), dtype = float)
+        self.xy      = zeros((2, bpm_count, self.tt_length), dtype = float)
+        self.xyfa    = zeros((2, bpm_count, self.fa_length), dtype = float)
+        self.s       = zeros((bpm_count, self.capture_length), dtype = float)
         self.offsets = zeros((3, bpm_count), dtype = int)
+        self.enabled = zeros(bpm_count, dtype = bool)
 
     def update_xy(self, xy, bpm, waveform):
         self.stamp = waveform.timestamp
@@ -88,62 +97,25 @@ class Result:
     def update_offset(self, index, bpm, offset):
         self.offsets[index, bpm] = offset
 
+    def update_enabled(self, enabled):
+        self.enabled = enabled == 0
+
     def timestamp(self):
         return self.stamp
         
-    def RemoveDisabled(self):
-    # Getting the enabled/disabled status of the BPMs from the concentrator
-        self.good = caget('SR-DI-EBPM-01:ENABLED')
-        good = self.good > 0
-        s =   self.s
-        x =   1e-6 * self.xy[0]
-        y =   1e-6 * self.xy[1]
-        xfa = 1e-6 * self.xyfa[0]
-        yfa = 1e-6 * self.xyfa[1]
-        x_offset = self.offsets[0]
-        y_offset = self.offsets[1]
-        adc_offset = self.offsets[2]
-        
-
-        good_select = good == False
-        # remove the bad BPM data
-        s = s[good_select]   
-        #setting the data for the disabled position to NaN 
-        x[good] = NaN
-        y[good] = NaN
-        xfa[good] = NaN        
-        yfa[good] = NaN
-        x_offset[good] = NaN
-        y_offset[good] = NaN
-        adc_offset[good] = NaN
-        
-        # getting things in the correct format for writing
-        self.s_out = s.mean(0)
-        self.x = x.T
-        self.y = y.T
-        self.xfa = xfa.T
-        self.yfa = yfa.T
-        self.x_offset = x_offset
-        self.y_offset = y_offset
-        self.adc_offset = adc_offset
-                                
-    def write(self, time, filename):
-        savemat(filename, dict(
-            x = self.x,
-            y = self.y,
-            s = self.s_out,
-            xfa = self.xfa,
-            yfa = self.yfa,
-            x_offset = self.x_offset,
-            y_offset = self.y_offset,
-            adc_offset = self.adc_offset,
-            time = time ), appendmat=True)  
-        # Adding an entry into elog
-        rel_path = os.path.dirname(__file__)
-        where = os.path.abspath(rel_path)
-        pm_message = "Saved in " + filename + "\n" + "Run the following command in a terminal window to view it.\n" + where + "/bpm_frontend " + filename
-        elog.entry('BPM postmortem recorded', pm_message)
-        
+    def write(self, filename):
+        data = dict(
+            time        = self.stamp,
+            x           = 1e-6 * self.xy[0].T,
+            y           = 1e-6 * self.xy[1].T,
+            xfa         = 1e-6 * self.xyfa[0].T,
+            yfa         = 1e-6 * self.xyfa[1].T,
+            s           = 1e-6 * self.s.mean(0),
+            x_offset    = self.offsets[0],
+            y_offset    = self.offsets[1],
+            adc_offset  = self.offsets[2],
+            enabled     = self.enabled)
+        savemat(filename, data, appendmat=True)  
 
     def reset(self):
         self.xy[:] = 0
@@ -168,6 +140,7 @@ class Saver:
         camonitor(s_pvs, self.update_s, format = FORMAT_TIME)
         self.camonitor_group(xy_pvs,     self.results.update_xy)
         self.camonitor_group(offset_pvs, self.results.update_offset)
+        camonitor('SR-DI-EBPM-01:ENABLED', self.results.update_enabled)
 
 
     def camonitor_group(self, group_list, action):
@@ -202,9 +175,7 @@ class Saver:
         print 'Capture complete triggered!'
         self.timer_state = self.TIMER_QUIESCENT
         # Write out whatever we have now.
-        self.results.RemoveDisabled()
         self.write_result()
-        self.results.reset()
 
         # Now ignore any further updates for a little while.  This prevents
         # insanity if something busy is going on!  We'll trigger at most once
@@ -224,8 +195,7 @@ class Saver:
         return dirname, filename
 
     def write_result(self):
-        time = self.results.timestamp()
-        dirname, filename = self.filename(time)
+        dirname, filename = self.filename(self.results.timestamp())
         if os.path.isfile(filename):
             print 'File %s already exists' % filename
         else:
@@ -233,8 +203,12 @@ class Saver:
                 print 'Creating', dirname
                 os.mkdir(dirname)
             print 'Writing pm', filename
-            self.results.write(time, filename)
+            self.results.write(filename)
+            self.results.reset()
 
+            # Write a log entry into e-log.
+            where = os.path.abspath(os.path.dirname(__file__))
+            elog.entry('BPM postmortem recorded', PM_MESSAGE % locals(), DEBUG)
             
   
 
