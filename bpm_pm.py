@@ -47,8 +47,8 @@ FNAME = 'bpm_postmortem'
 # postmortem file.
 PM_MESSAGE = \
     "Saved in %(filename)s\n" + \
-    "Run the following command in a terminal window to view it.\n" + \
-    "%(where)s/bpm_frontend %(filename)s" 
+    "Run the following command in a terminal window to view it:\n" + \
+    "%(where)s/bpm_frontend.py %(filename)s" 
 
 
 class Filter:
