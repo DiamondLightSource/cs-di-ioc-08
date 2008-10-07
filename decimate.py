@@ -1,9 +1,11 @@
 '''Simple wrapper for decimation and filtering.'''
 
 import ctypes
+import os
 from numpy import *
 
-decimate_lib = ctypes.cdll.LoadLibrary('./_decimate.so')
+decimate_lib = ctypes.cdll.LoadLibrary(
+    os.path.join(os.path.dirname(__file__), './_decimate.so'))
 _decimate = decimate_lib.decimate
 
 
