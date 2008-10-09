@@ -209,7 +209,7 @@ plot(adc_offset,linspace(1,168,168),'.')
 for p in arange(24):
     axhline(y=p*7,color='grey', ls='--', alpha=0.5)
 axvline(x=0, color='grey')
-axis([-100, 1000, 0, 168])
+axis([-200, 600, 0, 168])
 yticks(arange(24)*7,arange(24)+1)
 xlabel('Turns')
 ylabel('CIA number')
