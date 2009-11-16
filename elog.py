@@ -1,4 +1,4 @@
-#!/bin/env python2.4
+#!/bin/env dls-python2.4
 
 import datetime
 import httplib

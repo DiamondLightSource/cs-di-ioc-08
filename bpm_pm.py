@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.4
+#!/usr/bin/env dls-python2.4
 
 # This is the postmortem back end for the BPMs
 #
