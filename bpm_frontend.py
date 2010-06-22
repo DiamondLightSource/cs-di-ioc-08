@@ -1,4 +1,4 @@
-#!/usr/bin/env dls-python2.4
+#!/dls_sw/tools/bin/dls-python2.4
 
 # This is the frontend for the BPM postmortem.
 from pkg_resources import require
