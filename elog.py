@@ -1,5 +1,3 @@
-#!/bin/env dls-python2.4
-
 import datetime
 import httplib
 import mimetypes
@@ -7,10 +5,10 @@ import mimetypes
 host = 'rdb.pri.diamond.ac.uk'
 
 def encode_multipart_formdata(fields):
-    """
+    '''
     fields is a sequence of (name, value) elements for regular form fields.
     Return (content_type, body) ready for httplib.HTTP instance
-    """
+    '''
     BOUNDARY = '----------ThIs_Is_tHe_bouNdaRY_$'
     CRLF = '\r\n'
     L = []
@@ -26,11 +24,11 @@ def encode_multipart_formdata(fields):
     return content_type, body
 
 def post_multipart(host, selector, fields):
-    """
+    '''
     Post fields to an http host as multipart/form-data.
     fields is a sequence of (name, value) elements for regular form fields.
     Return the server's response page.
-    """
+    '''
     content_type, body = encode_multipart_formdata(fields)
     h = httplib.HTTP(host)
     h.putrequest('POST', selector)
@@ -53,13 +51,3 @@ def entry(title, content, debug = False):
     except:
         import traceback
         traceback.print_exc()
-    
-    
-if __name__ == '__main__':
-    message = '''This is a test with some new lines
-        and some more text
-        and some stuff.
-
-        THE END'''
-        
-    entry('Testing', 'One line message', True)

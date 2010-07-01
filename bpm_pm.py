@@ -1,21 +1,15 @@
-#!/usr/bin/env dls-python2.4
-
 # This is the postmortem back end for the BPMs
 #
-# The program waits for POSTMORTEM_TIMEOUT and then returns the data it has recieved. It uses the good/bad data from the concentrator to remove spurious data.
+# The program waits for POSTMORTEM_TIMEOUT and then returns the data it has
+# recieved. It uses the good/bad data from the concentrator to remove spurious
+# data.
 #
-# Authors Alun Morgan and Michael Abbot
+# Authors Alun Morgan and Michael Abbott
 
-
-if __name__ == '__main__':
-    from pkg_resources import require as Require
-    Require('numpy==1.1.0')
-    Require('cothread==1.9')
-
-
-# Controlling definitions
-POSTMORTEM_TIMEOUT = 15
-QUIESCENT_TIMEOUT = 120
+from pkg_resources import require
+require('cothread==1.16')
+require('scipy==0.8.0b1')
+require('iocbuilder==3.0')
 
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
@@ -23,15 +17,24 @@ QUIESCENT_TIMEOUT = 120
 import os, datetime, time
 os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '1000000'
 
-import elog
 import sys
-from cothread import *
-from cothread.catools import *
-from numpy import *
+import cothread
+from cothread import catools
+import numpy
 from scipy.io import savemat, loadmat
 from scipy.signal import lfilter
 
-from decimate import decimate
+# Python soft IOC imports
+import builder
+import softioc
+
+import elog
+import decimate
+
+
+# Controlling definitions
+POSTMORTEM_TIMEOUT = 30
+QUIESCENT_TIMEOUT = 120
 
 
 DEBUG = 'D' in sys.argv
@@ -46,24 +49,25 @@ FNAME = 'bpm_postmortem'
 # The following message is written to e-log on successful writing of a
 # postmortem file.
 PM_MESSAGE = \
-    "Saved in %(filename)s\n" + \
-    "Run the following command in a terminal window to view it:\n" + \
-    "%(where)s/bpm_frontend.py %(filename)s" 
+    'Saved in %(filename)s\n' + \
+    'Run the following command in a terminal window to view it:\n' + \
+    '%(where)s/bpm_frontend.py %(filename)s'
 
 
 class Filter:
     def __init__(self, filename):
-        taps = loadmat(filename)
+        taps = loadmat(filename, squeeze_me=True)
         for name in taps.keys():
             setattr(self, name, taps[name])
         self.fir_sum = sum(self.fir)
+        assert self.fir.ndim == 1
 
     def tt2fa(self, waveform):
         # This filters the data from FA to TT to mimic what the BPMs do.
 
         # First apply the polyphase low pass filter and decimate the data
-        # 1:53.  
-        waveform = decimate(waveform, self.fir, 53) / self.fir_sum
+        # 1:53.
+        waveform = decimate.decimate(waveform, self.fir, 53) / self.fir_sum
         # Then pass the decimated data through two notch filters (to remove
         # the remaining switching frequencies)
         return lfilter(
@@ -75,25 +79,28 @@ class Result:
     tt_length = 1000
     fa_length = 307
     capture_length = 16384
-    
+
     def __init__(self, bpm_count, filter):
         self.filter = filter
-        
+
         self.stamp = 0
-        self.xy      = zeros((2, bpm_count, self.tt_length), dtype = float)
-        self.xyfa    = zeros((2, bpm_count, self.fa_length), dtype = float)
-        self.s       = zeros((bpm_count, self.capture_length), dtype = float)
-        self.offsets = zeros((3, bpm_count), dtype = int)
-        self.enabled = zeros(bpm_count, dtype = bool)
+        self.xy      = numpy.zeros(
+            (2, bpm_count, self.tt_length), dtype = float)
+        self.xyfa    = numpy.zeros(
+            (2, bpm_count, self.fa_length), dtype = float)
+        self.s       = numpy.zeros(
+            (bpm_count, self.capture_length), dtype = float)
+        self.offsets = numpy.zeros((3, bpm_count), dtype = int)
+        self.enabled = numpy.zeros(bpm_count, dtype = bool)
 
     def update_xy(self, xy, bpm, waveform):
         self.stamp = waveform.timestamp
         self.xy[xy, bpm] = waveform[-1500:-500]
         self.xyfa[xy, bpm] = self.filter.tt2fa(waveform)
-        
+
     def update_s(self, waveform, bpm):
         self.s[bpm] = waveform
-        
+
     def update_offset(self, index, bpm, offset):
         self.offsets[index, bpm] = offset
 
@@ -102,7 +109,7 @@ class Result:
 
     def timestamp(self):
         return self.stamp
-        
+
     def write(self, filename):
         data = dict(
             time        = self.stamp,
@@ -115,7 +122,7 @@ class Result:
             y_offset    = self.offsets[1],
             adc_offset  = self.offsets[2],
             enabled     = self.enabled)
-        savemat(filename, data, appendmat=True)  
+        savemat(filename, data, appendmat=True, oned_as='column')
 
     def reset(self):
         self.xy[:] = 0
@@ -137,30 +144,30 @@ class Saver:
 
         self.timer_state = self.TIMER_OFF
 
-        camonitor(s_pvs, self.update_s, format = FORMAT_TIME)
+        catools.camonitor(s_pvs, self.update_s, format = catools.FORMAT_TIME)
         self.camonitor_group(xy_pvs,     self.results.update_xy)
         self.camonitor_group(offset_pvs, self.results.update_offset)
-        camonitor('SR-DI-EBPM-01:ENABLED', self.results.update_enabled)
+        catools.camonitor('SR-DI-EBPM-01:ENABLED', self.results.update_enabled)
 
 
     def camonitor_group(self, group_list, action):
         for group, pvs in enumerate(group_list):
             for bpm, pv in enumerate(pvs):
-                camonitor(pv,
+                catools.camonitor(pv,
                     lambda value, group=group, bpm=bpm:
                         self.update_group(group, bpm, value, action),
-                    format = FORMAT_TIME)
+                    format = catools.FORMAT_TIME)
 
     def update_group(self, group, bpm, value, action):
         sys.stderr.write('[')
         if self.StartTimer():
             action(group, bpm, value)
-            
+
     def update_s(self, waveform, bpm):
         sys.stderr.write('<')
         if self.StartTimer():
             self.results.update_s(waveform, bpm)
-                    
+
     def StartTimer(self):
         if self.timer_state == self.TIMER_QUIESCENT:
             # In quiescent state ignore everything
@@ -168,7 +175,7 @@ class Saver:
         elif self.timer_state == self.TIMER_OFF:
             print 'Starting timer'
             self.timer_state = self.TIMER_RUNNING
-            Timer(POSTMORTEM_TIMEOUT, self.CaptureComplete)
+            cothread.Timer(POSTMORTEM_TIMEOUT, self.CaptureComplete)
         return True
 
     def CaptureComplete(self):
@@ -180,11 +187,11 @@ class Saver:
         # Now ignore any further updates for a little while.  This prevents
         # insanity if something busy is going on!  We'll trigger at most once
         # every two minutes...
-        Sleep(QUIESCENT_TIMEOUT)
+        cothread.Sleep(QUIESCENT_TIMEOUT)
 
         print 'Quiescent complete triggered'
         self.timer_state = self.TIMER_OFF
-        
+
     def filename(self, time):
         # Computes the filename from the timestamp.
         timestamp = datetime.datetime.utcfromtimestamp(time)
@@ -209,8 +216,8 @@ class Saver:
             # Write a log entry into e-log.
             where = os.path.abspath(os.path.dirname(__file__))
             elog.entry('BPM postmortem recorded', PM_MESSAGE % locals(), DEBUG)
-            
-  
+
+
 
 def PVs(name):
     return ['SR%02dC-DI-EBPM-%02d:PM:%s' % (cell+1, position+1, name)
@@ -225,6 +232,16 @@ good_pvs = PVs('CF:ENABLED_S')
 filter = Filter('liberafilter.mat')
 
 # save task
-if __name__ == '__main__':
-    Saver(filter, xy_pvs, s_pvs, offset_pvs, good_pvs)
-    WaitForQuit()
+Saver(filter, xy_pvs, s_pvs, offset_pvs, good_pvs)
+
+
+# A couple of identification PVs
+builder.SetDeviceName('CS-DI-IOC-08')
+builder.stringIn('WHOAMI', VAL = 'EBPM Postmortem Server')
+builder.stringIn('HOSTNAME', VAL = os.uname()[1])
+
+builder.LoadDatabase()
+softioc.iocInit()
+
+from softioc import *
+interactive_ioc(globals())
