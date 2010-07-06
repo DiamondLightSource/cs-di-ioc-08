@@ -10,6 +10,7 @@ from pkg_resources import require
 require('cothread==1.16')
 require('scipy==0.8.0b1')
 require('iocbuilder==3.0')
+require('matplotlib == 0.99.1.1-r0')
 
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
@@ -30,6 +31,7 @@ import softioc
 
 import elog
 import decimate
+import plotserv
 
 
 # Controlling definitions
@@ -110,8 +112,8 @@ class Result:
     def timestamp(self):
         return self.stamp
 
-    def write(self, filename):
-        data = dict(
+    def get_data(self):
+        return dict(
             time        = self.stamp,
             x           = 1e-6 * self.xy[0].T,
             y           = 1e-6 * self.xy[1].T,
@@ -122,13 +124,39 @@ class Result:
             y_offset    = self.offsets[1],
             adc_offset  = self.offsets[2],
             enabled     = self.enabled)
-        savemat(filename, data, appendmat=True, oned_as='column')
 
     def reset(self):
         self.xy[:] = 0
         self.xyfa[:] = 0
         self.s[:] = 0
         self.offsets[:] = 0
+
+
+# Routine for invoking a fork with all the appropriate precautions
+# Actually, in principle even this isn't safe, see:
+#   http://www.linuxprogrammingblog.com/\
+#       threads-and-fork-think-twice-before-using-them
+# Never mind.  We'll do it anyway...
+def safe_fork(fn, *args, **kargs):
+    pid = os.fork()
+    if pid == 0:
+        try:
+            fn(*args, **kargs)
+        except:
+            import traceback
+            traceback.print_exc()
+
+        # Rather important that we exit immediately, even if anything
+        # above fails.  Also we don't want to do any extra cleaning up,
+        # that's the parent process's job.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(0)
+    else:
+        # We'd better wait for the fork to complete, otherwise we'll spawn
+        # innumerable zombies.  Annoyingly this blocks the parent cothread, but
+        # there's no real harm done.
+        os.waitpid(pid, 0)
 
 
 
@@ -210,13 +238,21 @@ class Saver:
                 print 'Creating', dirname
                 os.mkdir(dirname)
             print 'Writing pm', filename
-            self.results.write(filename)
+            data = self.results.get_data()
+            savemat(filename, data, appendmat=True, oned_as='column')
+
+            # Write a log entry into e-log.  Done as background to avoid
+            # matplotlib memory leak.
+            safe_fork(self.write_elog_entry, filename, data)
+
+            # Needs to be done after preparing image and writing e-log
             self.results.reset()
 
-            # Write a log entry into e-log.
-            where = os.path.abspath(os.path.dirname(__file__))
-            elog.entry('BPM postmortem recorded', PM_MESSAGE % locals(), DEBUG)
-
+    def write_elog_entry(self, filename, data):
+        buf = plotserv.display_waveforms(data)
+        where = os.path.abspath(os.path.dirname(__file__))
+        elog.entry('BPM postmortem recorded', PM_MESSAGE % locals(), buf, DEBUG)
+        print 'Logged BPM postmortem'
 
 
 def PVs(name):
