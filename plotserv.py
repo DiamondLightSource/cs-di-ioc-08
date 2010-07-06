@@ -54,7 +54,7 @@ def display_waveforms(pm):
         FA_DEC * numpy.arange(len(pm.xfa)) - TRIGGER_DELAY)
     sfa_timebase = 1e3 / F_T * (numpy.arange(len(pm.s)) - TRIGGER_DELAY)
 
-    pylab.figure(figsize=(14, 8), facecolor='#C0C0C0')
+    pylab.figure(figsize=(13, 8), facecolor='#C0C0C0')
 
     pylab.axes([0.05, 0.07, 0.3, 0.4])
     plotting.plot_positions('X', 'turns', tt_timebase, pm.x, tt_timebase, s_tt)
