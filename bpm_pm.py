@@ -6,6 +6,9 @@
 #
 # Authors Alun Morgan and Michael Abbott
 
+import os
+os.environ['MPLCONFIGDIR'] = '/tmp'
+
 from pkg_resources import require
 require('cothread==1.16')
 require('scipy==0.8.0b1')
