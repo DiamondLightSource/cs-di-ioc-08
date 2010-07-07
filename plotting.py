@@ -1,4 +1,4 @@
-# Postmortem plotting function suppor
+# Postmortem plotting function support
 
 import pylab
 import numpy
@@ -18,7 +18,7 @@ def plot_offsets(enabled, x, y, adc):
 
     pylab.xlabel('Turns')
     pylab.ylabel('CIA number')
-    pylab.title('Overflow trigger times\n (x=blue y=green ADC=red)')
+    pylab.title('Interlock trigger times\n (X=blue Y=green ADC=red)')
 
 
 def plot_positions(axis, units, t_x, x, t_s, s, show_mps=False):

@@ -1,7 +1,5 @@
 /* Very simple decimation filter. */
 
-#import <stdio.h>
-
 
 /* Convolves Filter with input waveform In, simultaneously decimating by the
  * decimation factor specified by Interval.  The result is written to Out
