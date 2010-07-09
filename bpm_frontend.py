@@ -69,11 +69,6 @@ else:
     for a in (x, y, xfa, yfa):
         a[:, disabled] = numpy.NaN
 
-# code to flag up if there has been an ADC overflow
-# removing zeros as this means that the libera was rebooted
-#(only a problem for initial dataset)
-overflow = numpy.min(adc_offset[adc_offset > 0])
-
 # convert the offsets into trigger relative offsets
 for a in (x_offset, y_offset, adc_offset):
     a -= 15384
@@ -109,18 +104,23 @@ def fa_plotting(axis, value):
         axis, 'ms', fa_turnbase, value, ttonfa_turnbase, s, show_mps=True)
     return
 
-def tt_plotting(axis, value, overflow):
+def tt_plotting(axis, value):
     plotting.plot_positions(
         axis, 'turns', tt_turnbase, value, tt_turnbase, s[-1500:-500])
 
-    # putting in a line to show where the ADC overflow happened
-    if overflow < capture_length:
-        overflow_pos = overflow-(capture_length-1000)
-        pylab.axvline(x=overflow_pos, color='r')
+    # Figure out if there was an ADC overflow, and if so show it.
+    # We are only interested in visible triggers.
+    valid_offset = adc_offset[(-1000 < adc_offset) & (adc_offset < 1000)]
+    if len(valid_offset):
+        # putting in a line to show where the ADC overflow happened
+        overflow_pos = numpy.min(valid_offset)
+        pylab.axvline(x = overflow_pos, color = 'r')
         pylab.annotate(
-            'ADC\noverflow', xy=(overflow_pos, -1.5), xytext=(-490, -4),
-            arrowprops=dict(facecolor='black', shrink=0.05, width=1,
-            frac=0.1, headwidth=5))
+            'ADC\noverflow',
+            xy = (overflow_pos, -1.5), xytext = (-490, -4),
+            arrowprops = dict(
+                facecolor = 'black', shrink = 0.05, width = 1,
+                frac = 0.1, headwidth = 5))
 
 
 
@@ -139,11 +139,11 @@ fa_plotting('Y', yfa)
 
 # X positions as overlaid curves
 pylab.axes([0.07, 0.08, 0.40, 0.35])
-tt_plotting('X', x, overflow)
+tt_plotting('X', x)
 
 # Y positions as overlaid curves
 pylab.axes([0.55, 0.08, 0.40, 0.35])
-tt_plotting('Y', y, overflow)
+tt_plotting('Y', y)
 
 
 pylab.figure(2)
