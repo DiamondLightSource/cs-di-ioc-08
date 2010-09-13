@@ -102,7 +102,6 @@ pylab.ioff()
 def fa_plotting(axis, value):
     plotting.plot_positions(
         axis, 'ms', fa_turnbase, value, ttonfa_turnbase, s, show_mps=True)
-    return
 
 def tt_plotting(axis, value):
     plotting.plot_positions(
@@ -122,82 +121,79 @@ def tt_plotting(axis, value):
                 facecolor = 'black', shrink = 0.05, width = 1,
                 frac = 0.1, headwidth = 5))
 
+def im_plotting(axis, value):
+    pylab.imshow(abs(value), aspect='auto', interpolation=None)
+    pylab.axhline(y=500, color='r', ls='--')
+    for p in numpy.arange(24):
+        pylab.axvline(x=p*7, color='grey', ls='--', alpha=0.5)
+    pylab.axis([0, 168, len(tt_turnbase), 0])
+    pylab.xticks(numpy.arange(24)*7, numpy.arange(24)+1)
+    pylab.yticks(numpy.arange(9)*100, numpy.arange(9)*100 -500)
+    pylab.xlabel('CIA number')
+    pylab.ylabel('<-- turns <--')
+    pylab.title(axis)
+
+
+def plot_offsets(enabled, x, y, adc):
+    mx = numpy.min(x[enabled])
+    my = numpy.min(y[enabled])
+    ma = numpy.min(adc[enabled])
+    mm = numpy.min([mx,my,ma])
+    ind1 = ([mx,my,ma]==mm).nonzero()
+    if ind1[0] == 0:
+        bpm_num = (x == mm).nonzero()
+    elif ind1[0] == 1:
+        bpm_num = (y == mm).nonzero()
+    elif ind1[0] == 2:
+        bpm_num = (adc==mm).nonzero()
+    bpm_num = bpm_num[0][0]
+    print type(bpm_num)
+
+    plotting.plot_offsets(
+        enabled, x, y, adc, 
+        title =
+            'Interlock trigger times (X=blue, Y=green, ADC=red)'
+            ' First trigger %d-%d' % (1 + bpm_num//7, 1 + bpm_num % 7),
+        xlabel = 'Turns relative to post mortem event')
+
+    a24 = numpy.arange(24)
+    for p in a24:
+        for rs in numpy.arange(7)+1:
+            pylab.axhline(y=(p*7)+1+rs, color='grey', ls=':', alpha=0.15)
 
 
 fig1 = pylab.figure(1)
-a = pylab.axes([0, 0, 1, 0.93], axisbg='grey')
+a = pylab.axes([0, 0, 1, 0.95], axisbg='grey')
 pylab.setp(a, xticks=[], yticks=[])
 pylab.title(disptime)
 
 # X positions as overlaid curves
-ax = pylab.axes([0.07, 0.08+0.45, 0.40, 0.35])
+ax = pylab.axes([0.07, 0.08+0.60, 0.41, 0.25])
 fa_plotting('X', xfa)
 
 # Y positions as overlaid curves
-pylab.axes([0.55, 0.08+0.45, 0.40, 0.35])
+pylab.axes([0.53, 0.08+0.60, 0.41, 0.25])
 fa_plotting('Y', yfa)
 
 # X positions as overlaid curves
-pylab.axes([0.07, 0.08, 0.40, 0.35])
+pylab.axes([0.07, 0.08+0.30, 0.41, 0.25])
 tt_plotting('X', x)
 
 # Y positions as overlaid curves
-pylab.axes([0.55, 0.08, 0.40, 0.35])
+pylab.axes([0.53, 0.08+0.30, 0.41, 0.25])
 tt_plotting('Y', y)
 
-
-pylab.figure(2)
-a = pylab.axes([0, 0, 1, 0.93], axisbg='grey')
-pylab.setp(a, xticks=[], yticks=[])
-pylab.title(disptime)
-
-#
-# Trigger overflow Offsets
-#
-pylab.axes([0.07, 0.08, 0.40, 0.32])
-plotting.plot_offsets(~disabled, x_offset, y_offset, adc_offset)
-
-
-# S (intensity)
-pylab.axes([0.55, 0.08, 0.40, 0.32])
-pylab.plot(numpy.linspace(-(capture_length-1000), 1000, capture_length), s, 'k')
-pylab.yticks([-4, -2, 0, 2, 4], [0, 0.25, 0.5, 0.75, 1])
-pylab.axhline(y=-2, color='grey', ls='--', alpha=0.5)
-pylab.axhline(y=0, color='grey', ls='--', alpha=0.5)
-pylab.axhline(y=2, color='grey', ls='--', alpha=0.5)
-pylab.axvline(0)
-pylab.axis([-(capture_length-1000), 1000, -4.4, 4.4])
-pylab.xlabel('turns relative to post mortem event')
-pylab.ylabel('Intensity')
-#pylab.title('    RF <--|--> MPS')
-
-#
 # X position as an image
-#
-pylab.axes([0.07, 0.08+0.45, 0.40, 0.35])
-pylab.imshow(abs(x), aspect='auto', interpolation=None)
-pylab.axhline(y=500, color='r', ls='--')
-for p in numpy.arange(24):
-    pylab.axvline(x=p*7, color='grey', ls='--', alpha=0.5)
-pylab.axis([0, 168, len(tt_turnbase), 0])
-pylab.xticks(numpy.arange(24)*7, numpy.arange(24)+1)
-pylab.yticks(numpy.arange(9)*100, numpy.arange(9)*100 -500)
-pylab.xlabel('CIA number')
-pylab.ylabel('<-- turns <--')
+pylab.axes([0.07, 0.05, 0.18, 0.25])
+im_plotting('X',x)
 
-#
 # Y position as an image
-#
-pylab.axes([0.55, 0.08+0.45, 0.40, 0.35])
-pylab.imshow(abs(y), aspect='auto', interpolation=None)
-pylab.axhline(y=500, color='r', ls='--')
-for p in numpy.arange(24):
-    pylab.axvline(x=p*7, color='grey', ls='--', alpha=0.5)
-pylab.axis([0, 168, len(tt_turnbase), 0])
-pylab.xticks(numpy.arange(24)*7, numpy.arange(24)+1)
-pylab.yticks(numpy.arange(9)*100, numpy.arange(9)*100-500)
-pylab.xlabel('CIA number')
-pylab.ylabel('<-- turns <--')
+pylab.axes([0.30, 0.05, 0.18, 0.25])
+im_plotting('Y',y)
+
+# Trigger overflow Offsets
+pylab.axes([0.53, 0.05, 0.41, 0.25])
+plot_offsets(~disabled, x_offset, y_offset, adc_offset)
 
 pylab.show()
 qt_app.exec_()
