@@ -35,6 +35,7 @@ import softioc
 import elog
 import decimate
 import plotserv
+import bpms
 
 
 # Controlling definitions
@@ -126,6 +127,7 @@ class Result:
             x_offset    = self.offsets[0],
             y_offset    = self.offsets[1],
             adc_offset  = self.offsets[2],
+            bpm_id      = bpms.BPM_ids,
             enabled     = self.enabled)
 
     def reset(self):
@@ -259,9 +261,8 @@ class Saver:
 
 
 def PVs(name):
-    return ['SR%02dC-DI-EBPM-%02d:PM:%s' % (cell+1, position+1, name)
-        for cell in range(24)
-        for position in range(7)]
+    return bpms.BPMpvs('PM:%s' % name)
+
 
 xy_pvs = [PVs('WFX'), PVs('WFY')]
 offset_pvs = [PVs('%s_OFFSET' % name) for name in ['X', 'Y', 'ADC']]

@@ -2,21 +2,22 @@
 
 import pylab
 import numpy
+import bpms
 
 PLOT_TITLE = 'Interlock trigger times\n (X=blue Y=green ADC=red)'
 
-def plot_offsets(enabled, x, y, adc, title=PLOT_TITLE, xlabel = 'Turns'):
-    bpms = (numpy.arange(168) + 1)[enabled]
-    pylab.plot(x[enabled], bpms, '.')
-    pylab.plot(y[enabled], bpms, '.')
-    pylab.plot(adc[enabled], bpms, '.')
+def plot_offsets(enabled, x, y, adc, title=PLOT_TITLE, xlabel='Turns'):
+    ids = numpy.array(bpms.BPM_ids)[enabled]
+    pylab.plot(x[enabled],   ids, '.')
+    pylab.plot(y[enabled],   ids, '.')
+    pylab.plot(adc[enabled], ids, '.')
 
-    a24 = numpy.arange(24)
+    a24 = numpy.arange(24) + 1
     for p in a24:
-        pylab.axhline(y=p*7+1, color='grey', ls='--', alpha=0.5)
+        pylab.axhline(y=p, color='grey', ls='--', alpha=0.5)
     pylab.axvline(x=0, color='grey')
-    pylab.axis([-200, 600, 0, 168])
-    pylab.yticks(a24*7+1, a24+1)
+    pylab.axis([-200, 600, 0.9, 24.9])
+    pylab.yticks(a24, a24)
 
     pylab.xlabel('Turns')
     pylab.ylabel('CIA number')
@@ -24,7 +25,9 @@ def plot_offsets(enabled, x, y, adc, title=PLOT_TITLE, xlabel = 'Turns'):
 
 
 def plot_positions(axis, units, t_x, x, t_s, s, show_mps=False):
-    pylab.plot(t_x, x)
+    x_lines = pylab.plot(t_x, x)
+    for l, c in zip(x_lines, bpms.BPM_colours):
+        l.set_color(c)
     pylab.plot(t_s, s, 'b--')
     pylab.axvline(0, color='g')
     pylab.axhline(y=1, color='r', ls='--')

@@ -15,6 +15,7 @@ from datetime import datetime
 from PyQt4 import QtGui
 
 import plotting
+import bpms
 
 
 qt_app = QtGui.QApplication(sys.argv)
@@ -135,31 +136,24 @@ def im_plotting(axis, value):
 
 
 def plot_offsets(enabled, x, y, adc):
-    mx = numpy.min(x[enabled])
-    my = numpy.min(y[enabled])
-    ma = numpy.min(adc[enabled])
-    mm = numpy.min([mx,my,ma])
-    ind1 = ([mx,my,ma]==mm).nonzero()
-    if ind1[0] == 0:
-        bpm_num = (x == mm).nonzero()
-    elif ind1[0] == 1:
-        bpm_num = (y == mm).nonzero()
-    elif ind1[0] == 2:
-        bpm_num = (adc==mm).nonzero()
-    bpm_num = bpm_num[0][0]
-    print type(bpm_num)
+    m = min([numpy.min(t[enabled]) for t in [x, y, adc]])
+    for t in [x, y, adc]:
+        n = numpy.nonzero(t[enabled] == m)[0]
+        if len(n) > 0:
+            bpm_num = n[0]
+            break
 
     plotting.plot_offsets(
-        enabled, x, y, adc, 
+        enabled, x, y, adc,
         title =
             'Interlock trigger times (X=blue, Y=green, ADC=red)'
-            ' First trigger %d-%d' % (1 + bpm_num//7, 1 + bpm_num % 7),
+            ' First trigger %s' % bpms.BPMS[bpm_num],
         xlabel = 'Turns relative to post mortem event')
 
-    a24 = numpy.arange(24)
+    a24 = numpy.arange(24) + 1
     for p in a24:
-        for rs in numpy.arange(7)+1:
-            pylab.axhline(y=(p*7)+1+rs, color='grey', ls=':', alpha=0.15)
+         for rs in 0.1 * (numpy.arange(7) + 1):
+            pylab.axhline(y=p+rs, color='grey', ls=':', alpha=0.15)
 
 
 fig1 = pylab.figure(1)
