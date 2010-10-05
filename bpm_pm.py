@@ -110,8 +110,8 @@ class Result:
     def update_offset(self, index, bpm, offset):
         self.offsets[index, bpm] = offset
 
-    def update_enabled(self, enabled):
-        self.enabled = enabled == 0
+    def update_enabled(self, enabled, bpm):
+        self.enabled[bpm] = enabled == 1
 
     def timestamp(self):
         return self.stamp
@@ -177,11 +177,10 @@ class Saver:
 
         self.timer_state = self.TIMER_OFF
 
-        catools.camonitor(s_pvs, self.update_s, format = catools.FORMAT_TIME)
+        catools.camonitor(s_pvs, self.update_s)
+        catools.camonitor(good_pvs, self.results.update_enabled)
         self.camonitor_group(xy_pvs,     self.results.update_xy)
         self.camonitor_group(offset_pvs, self.results.update_offset)
-        catools.camonitor('SR-DI-EBPM-01:ENABLED', self.results.update_enabled)
-
 
     def camonitor_group(self, group_list, action):
         for group, pvs in enumerate(group_list):
@@ -267,7 +266,7 @@ def PVs(name):
 xy_pvs = [PVs('WFX'), PVs('WFY')]
 offset_pvs = [PVs('%s_OFFSET' % name) for name in ['X', 'Y', 'ADC']]
 s_pvs = PVs('WFS')
-good_pvs = PVs('CF:ENABLED_S')
+good_pvs = bpms.BPMpvs('CF:ENABLED_S')
 
 filter = Filter('liberafilter.mat')
 

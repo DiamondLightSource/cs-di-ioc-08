@@ -8,9 +8,9 @@ PLOT_TITLE = 'Interlock trigger times\n (X=blue Y=green ADC=red)'
 
 def plot_offsets(enabled, x, y, adc, title=PLOT_TITLE, xlabel='Turns'):
     ids = numpy.array(bpms.BPM_ids)[enabled]
-    pylab.plot(x[enabled],   ids, '.')
-    pylab.plot(y[enabled],   ids, '.')
-    pylab.plot(adc[enabled], ids, '.')
+    pylab.plot(numpy.maximum(-200, x[enabled]),   ids, '.')
+    pylab.plot(numpy.maximum(-200, y[enabled]),   ids, '.')
+    pylab.plot(numpy.maximum(-200, adc[enabled]), ids, '.')
 
     a24 = numpy.arange(24) + 1
     for p in a24:
