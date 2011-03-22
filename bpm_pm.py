@@ -10,10 +10,10 @@ import os
 os.environ['MPLCONFIGDIR'] = '/tmp'
 
 from pkg_resources import require
-require('cothread==1.16')
+require('cothread==1.17')
 require('scipy==0.8.0b1')
 require('iocbuilder==3.0')
-require('matplotlib == 0.99.1.1-r0')
+require('matplotlib==0.99.1.1-r0')
 
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
@@ -29,8 +29,7 @@ from scipy.io import savemat, loadmat
 from scipy.signal import lfilter
 
 # Python soft IOC imports
-import builder
-import softioc
+from softioc import builder, softioc
 
 import elog
 import decimate
@@ -282,5 +281,4 @@ builder.stringIn('HOSTNAME', VAL = os.uname()[1])
 builder.LoadDatabase()
 softioc.iocInit()
 
-from softioc import *
-interactive_ioc(globals())
+softioc.interactive_ioc(globals())
