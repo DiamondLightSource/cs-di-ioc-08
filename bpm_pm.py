@@ -10,9 +10,9 @@ import os
 os.environ['MPLCONFIGDIR'] = '/tmp'
 
 from pkg_resources import require
-require('cothread==1.17')
+require('cothread==2.6')
 require('scipy==0.8.0b1')
-require('iocbuilder==3.22')
+require('iocbuilder==3.23')
 require('matplotlib==0.99.3-r0')
 
 
@@ -30,6 +30,7 @@ from scipy.signal import lfilter
 
 # Python soft IOC imports
 from softioc import builder, softioc
+from softioc import pvlog
 
 import elog
 import decimate

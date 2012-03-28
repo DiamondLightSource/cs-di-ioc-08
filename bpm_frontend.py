@@ -3,7 +3,7 @@
 # This is the frontend for the BPM postmortem.
 
 from pkg_resources import require
-require('matplotlib==0.99.1.1-r0')
+require('matplotlib==0.99.3-r0')
 require('scipy==0.8.0b1')
 
 import numpy
