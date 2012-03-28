@@ -12,8 +12,8 @@ os.environ['MPLCONFIGDIR'] = '/tmp'
 from pkg_resources import require
 require('cothread==1.17')
 require('scipy==0.8.0b1')
-require('iocbuilder==3.0')
-require('matplotlib==0.99.1.1-r0')
+require('iocbuilder==3.22')
+require('matplotlib==0.99.3-r0')
 
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
@@ -85,10 +85,13 @@ class Result:
     fa_length = 307
     capture_length = 16384
 
-    def __init__(self, bpm_count, filter):
+    def __init__(self, filter, on_start, pvs):
         self.filter = filter
+        self.on_start = on_start
+        xy_pvs, s_pvs, offset_pvs, good_pvs = pvs
 
         self.stamp = 0
+        bpm_count = len(s_pvs)
         self.xy      = numpy.zeros(
             (2, bpm_count, self.tt_length), dtype = float)
         self.xyfa    = numpy.zeros(
@@ -98,19 +101,39 @@ class Result:
         self.offsets = numpy.zeros((3, bpm_count), dtype = int)
         self.enabled = numpy.zeros(bpm_count, dtype = bool)
 
+        catools.camonitor(s_pvs,         self.update_s)
+        catools.camonitor(good_pvs,      self.update_enabled)
+        self.camonitor_group(xy_pvs,     self.update_xy)
+        self.camonitor_group(offset_pvs, self.update_offset)
+
+    def camonitor_group(self, group_list, action):
+        for group, pvs in enumerate(group_list):
+            for bpm, pv in enumerate(pvs):
+                catools.camonitor(pv,
+                    lambda value, group=group, bpm=bpm:
+                        self.update_group(group, bpm, value, action),
+                    format = catools.FORMAT_TIME)
+
+    def update_s(self, waveform, bpm):
+        sys.stderr.write('<')
+        if self.on_start():
+            self.s[bpm] = waveform
+
+    def update_enabled(self, enabled, bpm):
+        self.enabled[bpm] = enabled == 1
+
+    def update_group(self, group, bpm, value, action):
+        sys.stderr.write('[')
+        if self.on_start():
+            action(group, bpm, value)
+
     def update_xy(self, xy, bpm, waveform):
         self.stamp = waveform.timestamp
         self.xy[xy, bpm] = waveform[-1500:-500]
         self.xyfa[xy, bpm] = self.filter.tt2fa(waveform)
 
-    def update_s(self, waveform, bpm):
-        self.s[bpm] = waveform
-
     def update_offset(self, index, bpm, offset):
         self.offsets[index, bpm] = offset
-
-    def update_enabled(self, enabled, bpm):
-        self.enabled[bpm] = enabled == 1
 
     def timestamp(self):
         return self.stamp
@@ -171,33 +194,11 @@ class Saver:
     TIMER_QUIESCENT = 2     # Ignoring further updates for a bit...
 
     # object constructor
-    def __init__(self, filter, xy_pvs, s_pvs, offset_pvs, good_pvs):
-        self.results = Result(len(s_pvs), filter)
+    def __init__(self, filter, sr_pvs, sr10_pvs):
+        self.results = Result(filter, self.StartTimer, sr_pvs)
+        self.sr10_results = Result(filter, self.StartTimer, sr10_pvs)
 
         self.timer_state = self.TIMER_OFF
-
-        catools.camonitor(s_pvs, self.update_s)
-        catools.camonitor(good_pvs, self.results.update_enabled)
-        self.camonitor_group(xy_pvs,     self.results.update_xy)
-        self.camonitor_group(offset_pvs, self.results.update_offset)
-
-    def camonitor_group(self, group_list, action):
-        for group, pvs in enumerate(group_list):
-            for bpm, pv in enumerate(pvs):
-                catools.camonitor(pv,
-                    lambda value, group=group, bpm=bpm:
-                        self.update_group(group, bpm, value, action),
-                    format = catools.FORMAT_TIME)
-
-    def update_group(self, group, bpm, value, action):
-        sys.stderr.write('[')
-        if self.StartTimer():
-            action(group, bpm, value)
-
-    def update_s(self, waveform, bpm):
-        sys.stderr.write('<')
-        if self.StartTimer():
-            self.results.update_s(waveform, bpm)
 
     def StartTimer(self):
         if self.timer_state == self.TIMER_QUIESCENT:
@@ -242,6 +243,7 @@ class Saver:
                 os.mkdir(dirname)
             print 'Writing pm', filename
             data = self.results.get_data()
+            data['SR10'] = self.sr10_results.get_data()
             savemat(filename, data, appendmat=True, oned_as='column')
 
             # Write a log entry into e-log.  Done as background to avoid
@@ -258,19 +260,22 @@ class Saver:
         print 'Logged BPM postmortem'
 
 
-def PVs(name):
-    return bpms.BPMpvs('PM:%s' % name)
+def SR10S(name):
+    return ['SR10S-DI-EBPM-%02d:%s' % (n + 1, name) for n in range(2)]
 
 
-xy_pvs = [PVs('WFX'), PVs('WFY')]
-offset_pvs = [PVs('%s_OFFSET' % name) for name in ['X', 'Y', 'ADC']]
-s_pvs = PVs('WFS')
-good_pvs = bpms.BPMpvs('CF:ENABLED_S')
+def PV_list(pvs):
+    return [
+        [pvs('PM:WFX'), pvs('PM:WFY')],     # X and Y positions
+        pvs('PM:WFS'),                      # Raw beam intensity
+        [pvs('PM:%s_OFFSET' % name)
+         for name in ['X', 'Y', 'ADC']],    # Interlock offsets
+        pvs('CF:ENABLED_S'),                # Enabled flags
+    ]
 
-filter = Filter('liberafilter.mat')
 
 # save task
-Saver(filter, xy_pvs, s_pvs, offset_pvs, good_pvs)
+Saver(Filter('liberafilter.mat'), PV_list(bpms.BPMpvs), PV_list(SR10S))
 
 
 # A couple of identification PVs
