@@ -41,6 +41,7 @@ import bpms
 # Controlling definitions
 POSTMORTEM_TIMEOUT = 30
 QUIESCENT_TIMEOUT = 120
+TIMESTAMP_MARGIN = 0.1          # 100ms timestamp discrepancy ignored
 
 
 DEBUG = 'D' in sys.argv
@@ -91,8 +92,9 @@ class Result:
         self.on_start = on_start
         xy_pvs, s_pvs, offset_pvs, good_pvs = pvs
 
-        self.stamp = 0
         bpm_count = len(s_pvs)
+        self.valid   = numpy.zeros((2, bpm_count), dtype = bool)
+        self.stamps  = numpy.zeros((2, bpm_count), dtype = float)
         self.xy      = numpy.zeros(
             (2, bpm_count, self.tt_length), dtype = float)
         self.xyfa    = numpy.zeros(
@@ -129,7 +131,8 @@ class Result:
             action(group, bpm, value)
 
     def update_xy(self, xy, bpm, waveform):
-        self.stamp = waveform.timestamp
+        self.valid[xy, bpm] = True
+        self.stamps[xy, bpm] = waveform.timestamp
         self.xy[xy, bpm] = waveform[-1500:-500]
         self.xyfa[xy, bpm] = self.filter.tt2fa(waveform)
 
@@ -139,9 +142,22 @@ class Result:
     def timestamp(self):
         return self.stamp
 
+    # Called on completion of capture before finally writing out
+    def complete(self):
+        self.stamp = numpy.median(self.stamps[self.valid])
+
+    # Returns list of BPM ids with discrepancies in their time stamps
+    def discrepancies(self):
+        # Flag up any BPM with a timestamp discrepancy
+        errors = numpy.abs(self.stamps - self.stamp) > TIMESTAMP_MARGIN
+        return numpy.flatnonzero(errors[0] | errors[1])
+
+
     def get_data(self):
         return dict(
             time        = self.stamp,
+            valid       = self.valid,
+            stamps      = self.stamps,
             x           = 1e-6 * self.xy[0].T,
             y           = 1e-6 * self.xy[1].T,
             xfa         = 1e-6 * self.xyfa[0].T,
@@ -154,6 +170,8 @@ class Result:
             enabled     = self.enabled)
 
     def reset(self):
+        self.valid[:] = False
+        self.stamps[:] = 0
         self.xy[:] = 0
         self.xyfa[:] = 0
         self.s[:] = 0
@@ -214,8 +232,16 @@ class Saver:
     def CaptureComplete(self):
         print 'Capture complete triggered!'
         self.timer_state = self.TIMER_QUIESCENT
+
         # Write out whatever we have now.
+        self.results.complete()
+        self.sr10_results.complete()
+
         self.write_result()
+
+        # Needs to be done after preparing image and writing e-log
+        self.results.reset()
+        self.sr10_results.reset()
 
         # Now ignore any further updates for a little while.  This prevents
         # insanity if something busy is going on!  We'll trigger at most once
@@ -249,15 +275,22 @@ class Saver:
 
             # Write a log entry into e-log.  Done as background to avoid
             # matplotlib memory leak.
-            safe_fork(self.write_elog_entry, filename, data)
+            safe_fork(self.write_elog_entry,
+                filename, data, self.results.discrepancies())
 
-            # Needs to be done after preparing image and writing e-log
-            self.results.reset()
-
-    def write_elog_entry(self, filename, data):
+    def write_elog_entry(self, filename, data, discrepancies):
         buf = plotserv.display_waveforms(data)
         where = os.path.abspath(os.path.dirname(__file__))
-        elog.entry('BPM postmortem recorded', PM_MESSAGE % locals(), buf, DEBUG)
+        pm_message = PM_MESSAGE % locals()
+        if len(discrepancies) > 0:
+            if len(discrepancies) > 1:
+                plural = 's are'
+            else:
+                plural = ' is'
+            pm_message = pm_message + \
+                '\n\nThe following BPM%s out of sync: %s\n' % (
+                    plural, ', '.join(bpms.BPMS[i] for i in discrepancies))
+        elog.entry('BPM postmortem recorded', pm_message, buf, DEBUG)
         print 'Logged BPM postmortem'
 
 
