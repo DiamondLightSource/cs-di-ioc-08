@@ -44,6 +44,9 @@ QUIESCENT_TIMEOUT = 120
 TIMESTAMP_MARGIN = 0.1          # 100ms timestamp discrepancy ignored
 
 
+MATLAB_EPOCH = 719529           # Days from 1970/1/1 to 1990/1/1
+
+
 DEBUG = 'D' in sys.argv
 
 if DEBUG:
@@ -58,7 +61,8 @@ FNAME = 'bpm_postmortem'
 PM_MESSAGE = \
     'Saved in %(filename)s\n' + \
     'Run the following command in a terminal window to view it:\n' + \
-    '%(where)s/bpm_frontend.py %(filename)s'
+    '%(where)s/bpm_frontend.py %(filename)s\n' + \
+    '%(missing_message)s%(bad_timestamps_message)s'
 
 
 class Filter:
@@ -131,6 +135,7 @@ class Result:
             action(group, bpm, value)
 
     def update_xy(self, xy, bpm, waveform):
+        if bpm in [3]: return
         self.valid[xy, bpm] = True
         self.stamps[xy, bpm] = waveform.timestamp
         self.xy[xy, bpm] = waveform[-1500:-500]
@@ -146,18 +151,22 @@ class Result:
     def complete(self):
         self.stamp = numpy.median(self.stamps[self.valid])
 
-    # Returns list of BPM ids with discrepancies in their time stamps
-    def discrepancies(self):
+    # Returns list of BPM ids with discrepancies in their time stamps and a list
+    # of missing bpms
+    def faulty_bpms(self):
         # Flag up any BPM with a timestamp discrepancy
+        valid = self.valid[0] & self.valid[1]
         errors = numpy.abs(self.stamps - self.stamp) > TIMESTAMP_MARGIN
-        return numpy.flatnonzero(errors[0] | errors[1])
+        bad_timestamps = numpy.flatnonzero((errors[0] | errors[1]) & valid)
+        missing = numpy.flatnonzero(~valid)
+        return missing, bad_timestamps
 
 
     def get_data(self):
         return dict(
-            time        = self.stamp,
             valid       = self.valid,
-            stamps      = self.stamps,
+            time        = unix_to_matlab(self.stamp),
+            stamps      = unix_to_matlab(self.stamps),
             x           = 1e-6 * self.xy[0].T,
             y           = 1e-6 * self.xy[1].T,
             xfa         = 1e-6 * self.xyfa[0].T,
@@ -204,6 +213,24 @@ def safe_fork(fn, *args, **kargs):
         # there's no real harm done.
         os.waitpid(pid, 0)
 
+
+def maybe_report(bpm_list, message):
+    n = len(bpm_list)
+    if n > 0:
+        if n > 1:
+            plural = 's are'
+        else:
+            plural = ' is'
+        return '\nThe following BPM %s %s: %s\n' % (
+            plural, message, ', '.join(bpms.BPMS[i] for i in bpm_list))
+    else:
+        return ''
+
+
+# Converts Unix timestamp to Matlab format.
+def unix_to_matlab(datetime):
+    SECS_PER_DAY = 24 * 60 * 60
+    return datetime / SECS_PER_DAY + MATLAB_EPOCH
 
 
 class Saver:
@@ -276,20 +303,16 @@ class Saver:
             # Write a log entry into e-log.  Done as background to avoid
             # matplotlib memory leak.
             safe_fork(self.write_elog_entry,
-                filename, data, self.results.discrepancies())
+                filename, data, self.results.faulty_bpms())
 
     def write_elog_entry(self, filename, data, discrepancies):
+        missing, bad_timestamps = discrepancies
         buf = plotserv.display_waveforms(data)
         where = os.path.abspath(os.path.dirname(__file__))
+        missing_message = maybe_report(missing, 'missing from this postmortem')
+        bad_timestamps_message = maybe_report(bad_timestamps, 'out of sync')
         pm_message = PM_MESSAGE % locals()
-        if len(discrepancies) > 0:
-            if len(discrepancies) > 1:
-                plural = 's are'
-            else:
-                plural = ' is'
-            pm_message = pm_message + \
-                '\n\nThe following BPM%s out of sync: %s\n' % (
-                    plural, ', '.join(bpms.BPMS[i] for i in discrepancies))
+
         elog.entry('BPM postmortem recorded', pm_message, buf, DEBUG)
         print 'Logged BPM postmortem'
 
