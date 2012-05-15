@@ -135,7 +135,6 @@ class Result:
             action(group, bpm, value)
 
     def update_xy(self, xy, bpm, waveform):
-        if bpm in [3]: return
         self.valid[xy, bpm] = True
         self.stamps[xy, bpm] = waveform.timestamp
         self.xy[xy, bpm] = waveform[-1500:-500]
