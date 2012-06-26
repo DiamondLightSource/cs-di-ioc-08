@@ -263,7 +263,17 @@ class Saver:
         self.results.complete()
         self.sr10_results.complete()
 
-        self.write_result()
+        # Figure out the timestamp.  It's possible that we don't have a proper
+        # timestamp in self.results!
+        timestamp = self.results.timestamp()
+        if numpy.isnan(timestamp):
+            timestamp = self.sr10_results.timestamp()
+
+        # Ensure we only generate something with a valid timestamp
+        if numpy.isnan(timestamp):
+            print 'Ignoring PM: no valid timestamp!'
+        else:
+            self.write_result(timestamp)
 
         # Needs to be done after preparing image and writing e-log
         self.results.reset()
@@ -286,8 +296,8 @@ class Saver:
         filename = os.path.join(dirname, '%s-%s.mat' % (FNAME, datestring))
         return dirname, filename
 
-    def write_result(self):
-        dirname, filename = self.filename(self.results.timestamp())
+    def write_result(self, timestamp):
+        dirname, filename = self.filename(timestamp)
         if os.path.isfile(filename):
             print 'File %s already exists' % filename
         else:
