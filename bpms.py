@@ -3,7 +3,7 @@
 # List of all BPMs in the storage ring.  This is slightly tricky as we alternate
 # straights and arcs, but we only have a limited number of straights.  This list
 # needs to match the corresponding list in CS-DI-IOC-01/monitor.py
-STRAIGHTS = [9, 13]        # Expect straight 10 later on
+STRAIGHTS = [9, 10, 13]
 
 
 def flatten(ll):

@@ -60,9 +60,11 @@ FNAME = 'bpm_postmortem'
 # postmortem file.
 PM_MESSAGE = \
     'Saved in %(filename)s\n' + \
-    'Run the following command in a terminal window to view it:\n' + \
-    '%(where)s/bpm_frontend.py %(filename)s\n' + \
     '%(missing_message)s%(bad_timestamps_message)s'
+#     'Saved in %(filename)s\n' + \
+#     'Run the following command in a terminal window to view it:\n' + \
+#     '%(where)s/bpm_frontend.py %(filename)s\n' + \
+#     '%(missing_message)s%(bad_timestamps_message)s'
 
 
 class Filter:
@@ -94,7 +96,7 @@ class Result:
     def __init__(self, filter, on_start, pvs):
         self.filter = filter
         self.on_start = on_start
-        xy_pvs, s_pvs, offset_pvs, good_pvs = pvs
+        xy_pvs, s_pvs, offset_pvs, limit_pvs, good_pvs = pvs
 
         bpm_count = len(s_pvs)
         self.valid   = numpy.zeros((2, bpm_count), dtype = bool)
@@ -106,12 +108,14 @@ class Result:
         self.s       = numpy.zeros(
             (bpm_count, self.capture_length), dtype = float)
         self.offsets = numpy.zeros((3, bpm_count), dtype = int)
+        self.limits  = numpy.zeros((4, bpm_count), dtype = float)
         self.enabled = numpy.zeros(bpm_count, dtype = bool)
 
         catools.camonitor(s_pvs,         self.update_s)
         catools.camonitor(good_pvs,      self.update_enabled)
         self.camonitor_group(xy_pvs,     self.update_xy)
         self.camonitor_group(offset_pvs, self.update_offset)
+        self.camonitor_group(limit_pvs,  self.update_limit)
 
     def camonitor_group(self, group_list, action):
         for group, pvs in enumerate(group_list):
@@ -142,6 +146,9 @@ class Result:
 
     def update_offset(self, index, bpm, offset):
         self.offsets[index, bpm] = offset
+
+    def update_limit(self, index, bpm, offset):
+        self.limits[index, bpm] = offset
 
     def timestamp(self):
         return self.stamp
@@ -174,7 +181,11 @@ class Result:
             x_offset    = self.offsets[0],
             y_offset    = self.offsets[1],
             adc_offset  = self.offsets[2],
-            bpm_id      = bpms.BPM_ids,
+            bpm_id      = numpy.array(bpms.BPM_ids),
+            maxx        = self.limits[0],
+            minx        = self.limits[1],
+            maxy        = self.limits[2],
+            miny        = self.limits[3],
             enabled     = self.enabled)
 
     def reset(self):
@@ -239,9 +250,8 @@ class Saver:
     TIMER_QUIESCENT = 2     # Ignoring further updates for a bit...
 
     # object constructor
-    def __init__(self, filter, sr_pvs, sr10_pvs):
+    def __init__(self, filter, sr_pvs):
         self.results = Result(filter, self.StartTimer, sr_pvs)
-        self.sr10_results = Result(filter, self.StartTimer, sr10_pvs)
 
         self.timer_state = self.TIMER_OFF
 
@@ -261,15 +271,9 @@ class Saver:
 
         # Write out whatever we have now.
         self.results.complete()
-        self.sr10_results.complete()
-
-        # Figure out the timestamp.  It's possible that we don't have a proper
-        # timestamp in self.results!
-        timestamp = self.results.timestamp()
-        if numpy.isnan(timestamp):
-            timestamp = self.sr10_results.timestamp()
 
         # Ensure we only generate something with a valid timestamp
+        timestamp = self.results.timestamp()
         if numpy.isnan(timestamp):
             print 'Ignoring PM: no valid timestamp!'
         else:
@@ -277,7 +281,6 @@ class Saver:
 
         # Needs to be done after preparing image and writing e-log
         self.results.reset()
-        self.sr10_results.reset()
 
         # Now ignore any further updates for a little while.  This prevents
         # insanity if something busy is going on!  We'll trigger at most once
@@ -306,7 +309,6 @@ class Saver:
                 os.mkdir(dirname)
             print 'Writing pm', filename
             data = self.results.get_data()
-            data['SR10'] = self.sr10_results.get_data()
             savemat(filename, data, appendmat=True, oned_as='column')
 
             # Write a log entry into e-log.  Done as background to avoid
@@ -326,22 +328,20 @@ class Saver:
         print 'Logged BPM postmortem'
 
 
-def SR10S(name):
-    return ['SR10S-DI-EBPM-%02d:%s' % (n + 1, name) for n in range(2)]
-
-
 def PV_list(pvs):
     return [
         [pvs('PM:WFX'), pvs('PM:WFY')],     # X and Y positions
         pvs('PM:WFS'),                      # Raw beam intensity
         [pvs('PM:%s_OFFSET' % name)
          for name in ['X', 'Y', 'ADC']],    # Interlock offsets
+        [pvs('IL:%s%s' % (mm, xy))          # Interlock limits
+         for xy in 'XY' for mm in ['MAX', 'MIN']],
         pvs('CF:ENABLED_S'),                # Enabled flags
     ]
 
 
 # save task
-Saver(Filter('liberafilter.mat'), PV_list(bpms.BPMpvs), PV_list(SR10S))
+saver = Saver(Filter('liberafilter.mat'), PV_list(bpms.BPMpvs))
 
 
 # A couple of identification PVs
