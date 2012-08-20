@@ -10,7 +10,7 @@ import os
 os.environ['MPLCONFIGDIR'] = '/tmp'
 
 from pkg_resources import require
-require('cothread==2.6')
+require('cothread==2.8')
 require('scipy==0.8.0b1')
 require('iocbuilder==3.23')
 require('matplotlib==0.99.3-r0')
@@ -61,10 +61,6 @@ FNAME = 'bpm_postmortem'
 PM_MESSAGE = \
     'Saved in %(filename)s\n' + \
     '%(missing_message)s%(bad_timestamps_message)s'
-#     'Saved in %(filename)s\n' + \
-#     'Run the following command in a terminal window to view it:\n' + \
-#     '%(where)s/bpm_frontend.py %(filename)s\n' + \
-#     '%(missing_message)s%(bad_timestamps_message)s'
 
 
 class Filter:
@@ -88,6 +84,20 @@ class Filter:
             lfilter(self.n1n, self.n1d, waveform))
 
 
+# Much the same as camonitor, but with callback arguments in reverse order for
+# compatibility with camonitor2d.
+def camonitor1d(pvs, action, **kargs):
+    for n, pv in enumerate(pvs):
+        catools.camonitor(pv, lambda v, n=n: action(n, v), **kargs)
+
+# Camonitor over a two dimensional array of PVs (list of lists).
+def camonitor2d(pvss, action, **kargs):
+    for n1, pvs in enumerate(pvss):
+        for n2, pv in enumerate(pvs):
+            catools.camonitor(pv,
+                lambda v, n1=n1, n2=n2: action(n1, n2, v), **kargs)
+
+
 class Result:
     tt_length = 1000
     fa_length = 307
@@ -96,7 +106,7 @@ class Result:
     def __init__(self, filter, on_start, pvs):
         self.filter = filter
         self.on_start = on_start
-        xy_pvs, s_pvs, offset_pvs, limit_pvs, good_pvs = pvs
+        xy_pvs, s_pvs, offsets_pvs, limits_pvs, enabled_pvs = pvs
 
         bpm_count = len(s_pvs)
         self.valid   = numpy.zeros((2, bpm_count), dtype = bool)
@@ -111,44 +121,35 @@ class Result:
         self.limits  = numpy.zeros((4, bpm_count), dtype = float)
         self.enabled = numpy.zeros(bpm_count, dtype = bool)
 
-        catools.camonitor(s_pvs,         self.update_s)
-        catools.camonitor(good_pvs,      self.update_enabled)
-        self.camonitor_group(xy_pvs,     self.update_xy)
-        self.camonitor_group(offset_pvs, self.update_offset)
-        self.camonitor_group(limit_pvs,  self.update_limit)
+        camonitor2d(xy_pvs,      self.update_xy, format = catools.FORMAT_TIME)
+        camonitor1d(s_pvs,       self.update_s)
+        camonitor2d(offsets_pvs, self.update_offsets)
+        camonitor2d(limits_pvs,  self.update_limits)
+        camonitor1d(enabled_pvs, self.update_enabled, notify_disconnect = True)
 
-    def camonitor_group(self, group_list, action):
-        for group, pvs in enumerate(group_list):
-            for bpm, pv in enumerate(pvs):
-                catools.camonitor(pv,
-                    lambda value, group=group, bpm=bpm:
-                        self.update_group(group, bpm, value, action),
-                    format = catools.FORMAT_TIME)
 
-    def update_s(self, waveform, bpm):
-        sys.stderr.write('<')
-        if self.on_start():
-            self.s[bpm] = waveform
-
-    def update_enabled(self, enabled, bpm):
-        self.enabled[bpm] = enabled == 1
-
-    def update_group(self, group, bpm, value, action):
+    def update_xy(self, xy, bpm, value):
         sys.stderr.write('[')
-        if self.on_start():
-            action(group, bpm, value)
+        self.valid [xy, bpm] = self.on_start()
+        self.stamps[xy, bpm] = value.timestamp
+        self.xy    [xy, bpm] = value[-1500:-500]
+        self.xyfa  [xy, bpm] = self.filter.tt2fa(value)
 
-    def update_xy(self, xy, bpm, waveform):
-        self.valid[xy, bpm] = True
-        self.stamps[xy, bpm] = waveform.timestamp
-        self.xy[xy, bpm] = waveform[-1500:-500]
-        self.xyfa[xy, bpm] = self.filter.tt2fa(waveform)
+    def update_s(self, bpm, value):
+        sys.stderr.write('<')
+        self.s[bpm] = value
 
-    def update_offset(self, index, bpm, offset):
-        self.offsets[index, bpm] = offset
+    def update_offsets(self, index, bpm, value):
+        self.offsets[index, bpm] = value
 
-    def update_limit(self, index, bpm, offset):
-        self.limits[index, bpm] = offset
+    def update_limits(self, index, bpm, value):
+        sys.stderr.write('#')
+        self.limits[index, bpm] = value
+
+    def update_enabled(self, bpm, value):
+        print '%s: %s' % (value.name, value)
+        self.enabled[bpm] = value.ok and value == 1
+
 
     def timestamp(self):
         return self.stamp
@@ -231,7 +232,7 @@ def maybe_report(bpm_list, message):
             plural = 's are'
         else:
             plural = ' is'
-        return '\nThe following BPM %s %s: %s\n' % (
+        return '\nThe following BPM%s %s: %s\n' % (
             plural, message, ', '.join(bpms.BPMS[i] for i in bpm_list))
     else:
         return ''
