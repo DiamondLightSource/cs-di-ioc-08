@@ -2,9 +2,7 @@ import sys, os
 
 if __name__ == '__main__':
     os.environ['MPLCONFIGDIR'] = '/tmp'
-    from pkg_resources import require
-    require('matplotlib == 0.99.3-r0')
-    require('scipy==0.8.0b1')
+    import requires
 
 import matplotlib
 matplotlib.use('Agg')
@@ -114,12 +112,11 @@ def display_waveforms(pm):
 
 
 if __name__ == '__main__':
-    file_name = 'test.mat'
+    file_name = sys.argv[1] if len(sys.argv) > 1 else 'test.mat'
+
     from scipy.io import loadmat
     buf = display_waveforms(loadmat(file_name, squeeze_me=True))
 
-    # post to elog
-#     elog.entry('BPM postmortem', 'BPM Postmortem test', buf, True)
-#     # Write to .png file for review
+    # Write to .png file for review
     if buf:
         file('buf.png', 'w').write(buf)

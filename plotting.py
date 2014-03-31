@@ -7,15 +7,18 @@ import bpms
 PLOT_TITLE = 'Interlock trigger times\n (X=blue Y=green ADC=red)'
 
 def plot_offsets(ids, x, y, adc, title=PLOT_TITLE, xlabel='Turns'):
-    pylab.plot(numpy.maximum(-200, x),   ids, '.')
-    pylab.plot(numpy.maximum(-200, y),   ids, '.')
-    pylab.plot(numpy.maximum(-200, adc), ids, '.')
+    MIN_T, MAX_T = -300, +500
+    def clip(x): return numpy.maximum(MIN_T, numpy.minimum(MAX_T, x))
+
+    pylab.plot(clip(x),   ids, '.')
+    pylab.plot(clip(y),   ids, '.')
+    pylab.plot(clip(adc), ids, '.')
 
     a24 = numpy.arange(24) + 1
     for p in a24:
         pylab.axhline(y=p, color='grey', ls='--', alpha=0.5)
     pylab.axvline(x=0, color='grey')
-    pylab.axis([-200, 600, 0.9, 24.9])
+    pylab.axis([MIN_T, MAX_T, 0.9, 24.9])
     pylab.yticks(a24, a24)
 
     pylab.xlabel('Turns')

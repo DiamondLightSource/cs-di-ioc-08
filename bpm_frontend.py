@@ -1,10 +1,8 @@
-#!/dls_sw/prod/tools/RHEL5/bin/python2.6
+#!/usr/bin/env dls-python
 
 # This is the frontend for the BPM postmortem.
 
-from pkg_resources import require
-require('matplotlib==0.99.3-r0')
-require('scipy==0.8.0b1')
+import requires
 
 import numpy
 import pylab
@@ -102,11 +100,13 @@ pylab.ioff()
 
 def fa_plotting(axis, value):
     plotting.plot_positions(
-        axis, 'ms', fa_turnbase, value, ttonfa_turnbase, s, show_mps=True)
+        axis, 'ms', colours,
+        fa_turnbase, value, ttonfa_turnbase, s, show_mps=True)
 
 def tt_plotting(axis, value):
     plotting.plot_positions(
-        axis, 'turns', tt_turnbase, value, tt_turnbase, s[-1500:-500])
+        axis, 'turns', colours,
+        tt_turnbase, value, tt_turnbase, s[-1500:-500])
 
     # Figure out if there was an ADC overflow, and if so show it.
     # We are only interested in visible triggers.
@@ -155,6 +155,8 @@ def plot_offsets(enabled, x, y, adc):
          for rs in 0.1 * (numpy.arange(7) + 1):
             pylab.axhline(y=p+rs, color='grey', ls=':', alpha=0.15)
 
+
+colours = numpy.array(bpms.BPM_colours)[~disabled]
 
 fig1 = pylab.figure(1)
 a = pylab.axes([0, 0, 1, 0.95], axisbg='grey')

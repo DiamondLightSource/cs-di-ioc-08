@@ -9,12 +9,7 @@
 import os
 os.environ['MPLCONFIGDIR'] = '/tmp'
 
-from pkg_resources import require
-require('cothread==2.10')
-require('scipy==0.10.1')
-require('iocbuilder==3.45')
-require('matplotlib==0.99.3-r0')
-
+import requires
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
 # load the cothread library so that CA pays attention to it!
@@ -147,7 +142,6 @@ class Result:
         self.limits[index, bpm] = value
 
     def update_enabled(self, bpm, value):
-        print '%s: %s' % (value.name, value)
         self.enabled[bpm] = value.ok and value == 1
 
 
