@@ -124,6 +124,8 @@ class Result:
 
 
     def update_xy(self, xy, bpm, value):
+        if len(value) == 0:
+            return      # Ignore empty value on initial BPM startup
         sys.stderr.write('[')
         self.valid [xy, bpm] = self.on_start()
         self.stamps[xy, bpm] = value.timestamp
@@ -131,6 +133,8 @@ class Result:
         self.xyfa  [xy, bpm] = self.filter.tt2fa(value)
 
     def update_s(self, bpm, value):
+        if len(value) == 0:
+            return      # Ignore empty value on initial BPM startup
         sys.stderr.write('<')
         self.s[bpm] = value
 
