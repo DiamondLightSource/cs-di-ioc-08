@@ -10,10 +10,16 @@ def flatten(ll):
     '''Flattens a list of lists into a single list.'''
     return [x for l in ll for x in l]
 
+def cell_size(c):
+    if c == 2:
+        return 8
+    else:
+        return 7
+
 def make_bpms(straight, cell):
     return flatten([
-        [straight(c+1, n+1) for n in range(2) if c+1 in STRAIGHTS] + 
-        [cell(c+1, n+1) for n in range(7)]
+        [straight(c+1, n+1) for n in range(2) if c+1 in STRAIGHTS] +
+        [cell(c+1, n+1) for n in range(cell_size(c+1))]
         for c in range(24)])
 
 BPMS = make_bpms(
@@ -26,7 +32,7 @@ BPM_ids = make_bpms(
 
 BPM_colours = make_bpms(
     lambda c, n: 'k',
-    lambda c, n: 'bgrcmyk'[n-1])
+    lambda c, n: 'bgrcmykb'[n-1])
 
 BPM_count = len(BPMS)
 
