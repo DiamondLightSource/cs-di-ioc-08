@@ -101,13 +101,16 @@ class Result:
     def __init__(self, filter, on_start, pvs):
         self.filter = filter
         self.on_start = on_start
-        xy_pvs, s_pvs, offsets_pvs, limits_pvs, enabled_pvs = pvs
+        xy_pvs, s_pvs, offsets_pvs, limits_pvs, enabled_pvs, abcd_iq_pvs = pvs
 
         bpm_count = len(s_pvs)
+        self.bpm_count = bpm_count
         self.valid   = numpy.zeros((2, bpm_count), dtype = bool)
         self.stamps  = numpy.zeros((2, bpm_count), dtype = float)
         self.xy      = numpy.zeros(
             (2, bpm_count, self.tt_length), dtype = float)
+        self.abcd_iq = numpy.zeros(
+            (8, bpm_count, self.capture_length), dtype = numpy.float32)
         self.xyfa    = numpy.zeros(
             (2, bpm_count, self.fa_length), dtype = float)
         self.s       = numpy.zeros(
@@ -117,6 +120,7 @@ class Result:
         self.enabled = numpy.zeros(bpm_count, dtype = bool)
 
         camonitor2d(xy_pvs,      self.update_xy, format = catools.FORMAT_TIME)
+        camonitor2d(abcd_iq_pvs, self.update_abcd_iq)
         camonitor1d(s_pvs,       self.update_s)
         camonitor2d(offsets_pvs, self.update_offsets)
         camonitor2d(limits_pvs,  self.update_limits)
@@ -131,6 +135,9 @@ class Result:
         self.stamps[xy, bpm] = value.timestamp
         self.xy    [xy, bpm] = value[-1500:-500]
         self.xyfa  [xy, bpm] = self.filter.tt2fa(value)
+
+    def update_abcd_iq(self, abcd_iq, bpm, value):
+        self.abcd_iq[abcd_iq, bpm] = value
 
     def update_s(self, bpm, value):
         if len(value) == 0:
@@ -168,6 +175,12 @@ class Result:
 
 
     def get_data(self):
+        # Compute overall beam phase
+        iq = self.abcd_iq[::2] + 1j * self.abcd_iq[1::2]
+        phase = numpy.unwrap(numpy.angle(iq[:, self.enabled, :]), axis = 2)
+        phase = phase.mean(0).mean(0)
+        phase -= phase[0]
+
         return dict(
             valid       = self.valid,
             time        = unix_to_matlab(self.stamp),
@@ -177,6 +190,7 @@ class Result:
             xfa         = 1e-6 * self.xyfa[0].T,
             yfa         = 1e-6 * self.xyfa[1].T,
             s           = 1e-6 * self.s.mean(0),
+            phase       = phase,
             x_offset    = self.offsets[0],
             y_offset    = self.offsets[1],
             adc_offset  = self.offsets[2],
@@ -191,6 +205,7 @@ class Result:
         self.valid[:] = False
         self.stamps[:] = 0
         self.xy[:] = 0
+        self.abcd_iq[:] = 0
         self.xyfa[:] = 0
         self.s[:] = 0
         self.offsets[:] = 0
@@ -336,6 +351,8 @@ def PV_list(pvs):
         [pvs('IL:%s%s' % (mm, xy))          # Interlock limits
          for xy in 'XY' for mm in ['MAX', 'MIN']],
         pvs('CF:ENABLED_S'),                # Enabled flags
+        [pvs('PM:WF%s%s' % (abcd, iq))      # IQ button waveforms
+         for abcd in 'ABCD' for iq in 'IQ'],
     ]
 
 
