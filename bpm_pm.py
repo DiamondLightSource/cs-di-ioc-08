@@ -83,14 +83,14 @@ class Filter:
 # compatibility with camonitor2d.
 def camonitor1d(pvs, action, **kargs):
     for n, pv in enumerate(pvs):
-        catools.camonitor(pv, lambda v, n=n: action(n, v), **kargs)
+        catools.camonitor(pv, lambda v, n=n: action(n, v), count = -1, **kargs)
 
 # Camonitor over a two dimensional array of PVs (list of lists).
 def camonitor2d(pvss, action, **kargs):
     for n1, pvs in enumerate(pvss):
         for n2, pv in enumerate(pvs):
             catools.camonitor(pv,
-                lambda v, n1=n1, n2=n2: action(n1, n2, v), **kargs)
+                lambda v, n1=n1, n2=n2: action(n1, n2, v), count = -1, **kargs)
 
 
 class Result:
