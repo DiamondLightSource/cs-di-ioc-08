@@ -94,7 +94,6 @@ def camonitor2d(pvss, action, **kargs):
 
 
 class Result:
-    tt_length = 1000
     fa_length = 307
     capture_length = 16384
 
@@ -108,7 +107,7 @@ class Result:
         self.valid   = numpy.zeros((2, bpm_count), dtype = bool)
         self.stamps  = numpy.zeros((2, bpm_count), dtype = float)
         self.xy      = numpy.zeros(
-            (2, bpm_count, self.tt_length), dtype = float)
+            (2, bpm_count, self.capture_length), dtype = float)
         self.abcd_iq = numpy.zeros(
             (8, bpm_count, self.capture_length), dtype = numpy.float32)
         self.xyfa    = numpy.zeros(
@@ -133,7 +132,7 @@ class Result:
         sys.stderr.write('[')
         self.valid [xy, bpm] = self.on_start()
         self.stamps[xy, bpm] = value.timestamp
-        self.xy    [xy, bpm] = value[-1500:-500]
+        self.xy    [xy, bpm] = value
         self.xyfa  [xy, bpm] = self.filter.tt2fa(value)
 
     def update_abcd_iq(self, abcd_iq, bpm, value):
@@ -320,7 +319,7 @@ class Saver:
         else:
             if not os.path.isdir(dirname):
                 print 'Creating', dirname
-                os.mkdir(dirname)
+                os.makedirs(dirname)
             print 'Writing pm', filename
             data = self.results.get_data()
             savemat(filename, data, appendmat=True, oned_as='column')

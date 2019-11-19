@@ -45,8 +45,8 @@ def display_waveforms(pm):
         return
 
     bpm_id = pm.bpm_id[enabled]
-    x = pm.x[:, enabled]
-    y = pm.y[:, enabled]
+    x = pm.x[-1500:-500, enabled]
+    y = pm.y[-1500:-500, enabled]
     xfa = pm.xfa[:, enabled]
     yfa = pm.yfa[:, enabled]
 
