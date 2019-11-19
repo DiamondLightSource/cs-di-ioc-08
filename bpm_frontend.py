@@ -49,6 +49,12 @@ y = m['y']
 s = m['s']
 s = (s / numpy.max(s))*8 -4
 
+# As of late 2019 the size of x/y data increased from 1,000 to 16,384 samples.
+# Cope with this.
+if len(x) > 1000:
+    x = x[-1500:-500]
+    y = y[-1500:-500]
+
 # filtered postmortem data for x and y
 xfa = m['xfa']
 yfa = m['yfa']
