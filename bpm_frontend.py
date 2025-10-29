@@ -33,10 +33,10 @@ if len(sys.argv) == 1:
 elif len(sys.argv) == 2:
     filename = sys.argv[1]
 else:
-    print 'Unexpected extra arguments'
+    print('Unexpected extra arguments')
     sys.exit(1)
 
-print 'Loading postmortem', filename
+print('Loading postmortem', filename)
 
 
 m = scipy.io.loadmat(filename, squeeze_me=True)

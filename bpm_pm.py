@@ -273,13 +273,13 @@ class Saver:
             # In quiescent state ignore everything
             return False
         elif self.timer_state == self.TIMER_OFF:
-            print 'Starting timer'
+            print('Starting timer')
             self.timer_state = self.TIMER_RUNNING
             cothread.Timer(POSTMORTEM_TIMEOUT, self.CaptureComplete)
         return True
 
     def CaptureComplete(self):
-        print 'Capture complete triggered!'
+        print('Capture complete triggered!')
         self.timer_state = self.TIMER_QUIESCENT
 
         # Write out whatever we have now.
@@ -288,7 +288,7 @@ class Saver:
         # Ensure we only generate something with a valid timestamp
         timestamp = self.results.timestamp()
         if numpy.isnan(timestamp):
-            print 'Ignoring PM: no valid timestamp!'
+            print('Ignoring PM: no valid timestamp!')
         else:
             self.write_result(timestamp)
 
@@ -300,7 +300,7 @@ class Saver:
         # every two minutes...
         cothread.Sleep(QUIESCENT_TIMEOUT)
 
-        print 'Quiescent complete triggered'
+        print('Quiescent complete triggered')
         self.timer_state = self.TIMER_OFF
 
     def filename(self, time):
@@ -315,12 +315,12 @@ class Saver:
     def write_result(self, timestamp):
         dirname, filename = self.filename(timestamp)
         if os.path.isfile(filename):
-            print 'File %s already exists' % filename
+            print('File %s already exists' % filename)
         else:
             if not os.path.isdir(dirname):
-                print 'Creating', dirname
+                print('Creating', dirname)
                 os.makedirs(dirname)
-            print 'Writing pm', filename
+            print('Writing pm', filename)
             data = self.results.get_data()
             savemat(filename, data, appendmat=True, oned_as='column')
 
@@ -338,7 +338,7 @@ class Saver:
         pm_message = PM_MESSAGE % locals()
 
         elog.entry('BPM postmortem recorded', pm_message, buf, DEBUG)
-        print 'Logged BPM postmortem'
+        print('Logged BPM postmortem')
 
 
 def PV_list(pvs):

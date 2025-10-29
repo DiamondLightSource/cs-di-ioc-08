@@ -41,7 +41,7 @@ def display_waveforms(pm):
     enabled = (pm.enabled == 1) & (pm.valid[0] == 1) & (pm.valid[1] == 1)
     if not enabled.any():
         # Can't do empty plots, it'll just crash
-        print 'empty plot'
+        print('empty plot')
         return
 
     bpm_id = pm.bpm_id[enabled]
