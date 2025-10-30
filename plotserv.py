@@ -2,25 +2,25 @@ import sys, os
 
 if __name__ == '__main__':
     os.environ['MPLCONFIGDIR'] = '/tmp'
-    import requires
 
 import matplotlib
+
 matplotlib.use('Agg')
 
 import pylab
 import numpy
-import cStringIO, elog
+import io, elog
 
 import plotting
 import bpms
 
 
 # Machine revolution frequency
-F_T = 533818.
+F_T = 533818.0
 # Decimation factor for FF
 FA_DEC = 53
 # Trigger point in original waveform
-TRIGGER_DELAY = 15384.
+TRIGGER_DELAY = 15384.0
 
 # This reflects the group delay of the FA stream relative to TT of around two
 # samples due to filtering.
@@ -66,29 +66,34 @@ def display_waveforms(pm):
     pylab.figure(figsize=(13, 11), facecolor='#C0C0C0')
 
     pylab.axes([0.05, 0.32, 0.3, 0.29])
-    plotting.plot_positions(
-        'X', 'Turns', colours, tt_timebase, x, tt_timebase, s_tt)
+    plotting.plot_positions('X', 'Turns', colours, tt_timebase, x, tt_timebase, s_tt)
 
     pylab.axes([0.40, 0.32, 0.3, 0.29])
-    plotting.plot_positions(
-        'Y', 'Turns', colours, tt_timebase, y, tt_timebase, s_tt)
+    plotting.plot_positions('Y', 'Turns', colours, tt_timebase, y, tt_timebase, s_tt)
 
     pylab.axes([0.05, 0.67, 0.3, 0.29])
     plotting.plot_positions(
-        'X', 'ms', colours, fa_timebase, xfa, sfa_timebase, s_fa,
-        show_mps = True, label_mps = True)
+        'X',
+        'ms',
+        colours,
+        fa_timebase,
+        xfa,
+        sfa_timebase,
+        s_fa,
+        show_mps=True,
+        label_mps=True,
+    )
 
     pylab.axes([0.40, 0.67, 0.3, 0.29])
     plotting.plot_positions(
-        'Y', 'ms', colours, fa_timebase, yfa, sfa_timebase, s_fa,
-        show_mps = True)
+        'Y', 'ms', colours, fa_timebase, yfa, sfa_timebase, s_fa, show_mps=True
+    )
 
     pylab.axes([0.75, 0.32, 0.22, 0.62])
-    x_offset   = pm.x_offset[enabled]   - TRIGGER_DELAY
-    y_offset   = pm.y_offset[enabled]   - TRIGGER_DELAY
+    x_offset = pm.x_offset[enabled] - TRIGGER_DELAY
+    y_offset = pm.y_offset[enabled] - TRIGGER_DELAY
     adc_offset = pm.adc_offset[enabled] - TRIGGER_DELAY
     plotting.plot_offsets(bpm_id, x_offset, y_offset, adc_offset)
-
 
     # The precise instant of the interlock is a little difficult to correlate
     # precisely with the stored data, so there's a phase discrepancy.
@@ -96,17 +101,28 @@ def display_waveforms(pm):
 
     pylab.axes([0.07, 0.05, 0.42, 0.2])
     plotting.plot_limits(
-        'X', 'b', bpm_id, pm.minx[enabled], pm.maxx[enabled], xfa[T_ILK_FA],
-        (x_offset < 0) | (adc_offset < 0))
+        'X',
+        'b',
+        bpm_id,
+        pm.minx[enabled],
+        pm.maxx[enabled],
+        xfa[T_ILK_FA],
+        (x_offset < 0) | (adc_offset < 0),
+    )
 
     pylab.axes([0.56, 0.05, 0.42, 0.2])
     plotting.plot_limits(
-        'Y', 'g', bpm_id, pm.miny[enabled], pm.maxy[enabled], yfa[T_ILK_FA],
-        (y_offset < 0) | (adc_offset < 0))
-
+        'Y',
+        'g',
+        bpm_id,
+        pm.miny[enabled],
+        pm.maxy[enabled],
+        yfa[T_ILK_FA],
+        (y_offset < 0) | (adc_offset < 0),
+    )
 
     # print png to string buffer
-    buf = cStringIO.StringIO()
+    buf = io.BytesIO()
     pylab.gcf().canvas.print_png(buf)
     return buf.getvalue()
 
@@ -115,8 +131,10 @@ if __name__ == '__main__':
     file_name = sys.argv[1] if len(sys.argv) > 1 else 'test.mat'
 
     from scipy.io import loadmat
+
     buf = display_waveforms(loadmat(file_name, squeeze_me=True))
 
     # Write to .png file for review
     if buf:
-        file('buf.png', 'w').write(buf)
+        with open('buf.png', 'wb') as f:
+            f.write(buf)

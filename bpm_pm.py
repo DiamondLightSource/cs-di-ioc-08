@@ -7,13 +7,12 @@
 # Authors Alun Morgan and Michael Abbott
 
 import os
-os.environ['MPLCONFIGDIR'] = '/tmp'
+import datetime
 
-import requires
+os.environ['MPLCONFIGDIR'] = '/tmp'
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
 # load the cothread library so that CA pays attention to it!
-import os, datetime, time
 os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '1000000'
 
 import sys
@@ -25,7 +24,6 @@ from scipy.signal import lfilter
 
 # Python soft IOC imports
 from softioc import builder, softioc
-from softioc import pvlog
 
 import elog
 import decimate
@@ -36,10 +34,10 @@ import bpms
 # Controlling definitions
 POSTMORTEM_TIMEOUT = 30
 QUIESCENT_TIMEOUT = 120
-TIMESTAMP_MARGIN = 0.1          # 100ms timestamp discrepancy ignored
+TIMESTAMP_MARGIN = 0.1  # 100ms timestamp discrepancy ignored
 
 
-MATLAB_EPOCH = 719529           # Days from 1970/1/1 to 1990/1/1
+MATLAB_EPOCH = 719529  # Days from 1970/1/1 to 1990/1/1
 
 
 DEBUG = 'D' in sys.argv
@@ -53,9 +51,7 @@ FNAME = 'bpm_postmortem'
 
 # The following message is written to e-log on successful writing of a
 # postmortem file.
-PM_MESSAGE = \
-    'Saved in %(filename)s\n' + \
-    '%(missing_message)s%(bad_timestamps_message)s'
+PM_MESSAGE = 'Saved in %(filename)s\n' + '%(missing_message)s%(bad_timestamps_message)s'
 
 
 class Filter:
@@ -74,23 +70,23 @@ class Filter:
         waveform = decimate.decimate(waveform, self.fir, 53) / self.fir_sum
         # Then pass the decimated data through two notch filters (to remove
         # the remaining switching frequencies)
-        return lfilter(
-            self.n2n, self.n2d,
-            lfilter(self.n1n, self.n1d, waveform))
+        return lfilter(self.n2n, self.n2d, lfilter(self.n1n, self.n1d, waveform))
 
 
 # Much the same as camonitor, but with callback arguments in reverse order for
 # compatibility with camonitor2d.
 def camonitor1d(pvs, action, **kargs):
     for n, pv in enumerate(pvs):
-        catools.camonitor(pv, lambda v, n=n: action(n, v), count = -1, **kargs)
+        catools.camonitor(pv, lambda v, n=n: action(n, v), count=-1, **kargs)
+
 
 # Camonitor over a two dimensional array of PVs (list of lists).
 def camonitor2d(pvss, action, **kargs):
     for n1, pvs in enumerate(pvss):
         for n2, pv in enumerate(pvs):
-            catools.camonitor(pv,
-                lambda v, n1=n1, n2=n2: action(n1, n2, v), count = -1, **kargs)
+            catools.camonitor(
+                pv, lambda v, n1=n1, n2=n2: action(n1, n2, v), count=-1, **kargs
+            )
 
 
 class Result:
@@ -104,43 +100,40 @@ class Result:
 
         bpm_count = len(s_pvs)
         self.bpm_count = bpm_count
-        self.valid   = numpy.zeros((2, bpm_count), dtype = bool)
-        self.stamps  = numpy.zeros((2, bpm_count), dtype = float)
-        self.xy      = numpy.zeros(
-            (2, bpm_count, self.capture_length), dtype = float)
+        self.valid = numpy.zeros((2, bpm_count), dtype=bool)
+        self.stamps = numpy.zeros((2, bpm_count), dtype=float)
+        self.xy = numpy.zeros((2, bpm_count, self.capture_length), dtype=float)
         self.abcd_iq = numpy.zeros(
-            (8, bpm_count, self.capture_length), dtype = numpy.float32)
-        self.xyfa    = numpy.zeros(
-            (2, bpm_count, self.fa_length), dtype = float)
-        self.s       = numpy.zeros(
-            (bpm_count, self.capture_length), dtype = float)
-        self.offsets = numpy.zeros((3, bpm_count), dtype = int)
-        self.limits  = numpy.zeros((4, bpm_count), dtype = float)
-        self.enabled = numpy.zeros(bpm_count, dtype = bool)
+            (8, bpm_count, self.capture_length), dtype=numpy.float32
+        )
+        self.xyfa = numpy.zeros((2, bpm_count, self.fa_length), dtype=float)
+        self.s = numpy.zeros((bpm_count, self.capture_length), dtype=float)
+        self.offsets = numpy.zeros((3, bpm_count), dtype=int)
+        self.limits = numpy.zeros((4, bpm_count), dtype=float)
+        self.enabled = numpy.zeros(bpm_count, dtype=bool)
 
-        camonitor2d(xy_pvs,      self.update_xy, format = catools.FORMAT_TIME)
+        camonitor2d(xy_pvs, self.update_xy, format=catools.FORMAT_TIME)
         camonitor2d(abcd_iq_pvs, self.update_abcd_iq)
-        camonitor1d(s_pvs,       self.update_s)
+        camonitor1d(s_pvs, self.update_s)
         camonitor2d(offsets_pvs, self.update_offsets)
-        camonitor2d(limits_pvs,  self.update_limits)
-        camonitor1d(enabled_pvs, self.update_enabled, notify_disconnect = True)
-
+        camonitor2d(limits_pvs, self.update_limits)
+        camonitor1d(enabled_pvs, self.update_enabled, notify_disconnect=True)
 
     def update_xy(self, xy, bpm, value):
         if len(value) == 0:
-            return      # Ignore empty value on initial BPM startup
+            return  # Ignore empty value on initial BPM startup
         sys.stderr.write('[')
-        self.valid [xy, bpm] = self.on_start()
+        self.valid[xy, bpm] = self.on_start()
         self.stamps[xy, bpm] = value.timestamp
-        self.xy    [xy, bpm] = value
-        self.xyfa  [xy, bpm] = self.filter.tt2fa(value)
+        self.xy[xy, bpm] = value
+        self.xyfa[xy, bpm] = self.filter.tt2fa(value)
 
     def update_abcd_iq(self, abcd_iq, bpm, value):
         self.abcd_iq[abcd_iq, bpm] = value
 
     def update_s(self, bpm, value):
         if len(value) == 0:
-            return      # Ignore empty value on initial BPM startup
+            return  # Ignore empty value on initial BPM startup
         sys.stderr.write('<')
         self.s[bpm] = value
 
@@ -153,7 +146,6 @@ class Result:
 
     def update_enabled(self, bpm, value):
         self.enabled[bpm] = value.ok and value == 1
-
 
     def timestamp(self):
         return self.stamp
@@ -172,33 +164,33 @@ class Result:
         missing = numpy.flatnonzero(~valid)
         return missing, bad_timestamps
 
-
     def get_data(self):
         # Compute overall beam phase
         iq = self.abcd_iq[::2] + 1j * self.abcd_iq[1::2]
-        phase = numpy.unwrap(numpy.angle(iq[:, self.enabled, :]), axis = 2)
+        phase = numpy.unwrap(numpy.angle(iq[:, self.enabled, :]), axis=2)
         phase = phase.mean(0).mean(0)
         phase -= phase[0]
 
         return dict(
-            valid       = self.valid,
-            time        = unix_to_matlab(self.stamp),
-            stamps      = unix_to_matlab(self.stamps),
-            x           = 1e-6 * self.xy[0].T,
-            y           = 1e-6 * self.xy[1].T,
-            xfa         = 1e-6 * self.xyfa[0].T,
-            yfa         = 1e-6 * self.xyfa[1].T,
-            s           = 1e-6 * self.s.mean(0),
-            phase       = phase,
-            x_offset    = self.offsets[0],
-            y_offset    = self.offsets[1],
-            adc_offset  = self.offsets[2],
-            bpm_id      = numpy.array(bpms.BPM_ids),
-            maxx        = self.limits[0],
-            minx        = self.limits[1],
-            maxy        = self.limits[2],
-            miny        = self.limits[3],
-            enabled     = self.enabled)
+            valid=self.valid,
+            time=unix_to_matlab(self.stamp),
+            stamps=unix_to_matlab(self.stamps),
+            x=1e-6 * self.xy[0].T,
+            y=1e-6 * self.xy[1].T,
+            xfa=1e-6 * self.xyfa[0].T,
+            yfa=1e-6 * self.xyfa[1].T,
+            s=1e-6 * self.s.mean(0),
+            phase=phase,
+            x_offset=self.offsets[0],
+            y_offset=self.offsets[1],
+            adc_offset=self.offsets[2],
+            bpm_id=numpy.array(bpms.BPM_ids),
+            maxx=self.limits[0],
+            minx=self.limits[1],
+            maxy=self.limits[2],
+            miny=self.limits[3],
+            enabled=self.enabled,
+        )
 
     def reset(self):
         self.valid[:] = False
@@ -222,6 +214,7 @@ def safe_fork(fn, *args, **kargs):
             fn(*args, **kargs)
         except:
             import traceback
+
             traceback.print_exc()
 
         # Rather important that we exit immediately, even if anything
@@ -245,22 +238,25 @@ def maybe_report(bpm_list, message):
         else:
             plural = ' is'
         return '\nThe following BPM%s %s: %s\n' % (
-            plural, message, ', '.join(bpms.BPMS[i] for i in bpm_list))
+            plural,
+            message,
+            ', '.join(bpms.BPMS[i] for i in bpm_list),
+        )
     else:
         return ''
 
 
 # Converts Unix timestamp to Matlab format.
-def unix_to_matlab(datetime):
+def unix_to_matlab(timestamp):
     SECS_PER_DAY = 24 * 60 * 60
-    return datetime / SECS_PER_DAY + MATLAB_EPOCH
+    return timestamp / SECS_PER_DAY + MATLAB_EPOCH
 
 
 class Saver:
     # Set of timer states
-    TIMER_OFF = 0           # Waiting for first data to arrive
-    TIMER_RUNNING = 1       # Waiting for all data to arrive
-    TIMER_QUIESCENT = 2     # Ignoring further updates for a bit...
+    TIMER_OFF = 0  # Waiting for first data to arrive
+    TIMER_RUNNING = 1  # Waiting for all data to arrive
+    TIMER_QUIESCENT = 2  # Ignoring further updates for a bit...
 
     # object constructor
     def __init__(self, filter, sr_pvs):
@@ -308,7 +304,7 @@ class Saver:
         timestamp = datetime.datetime.utcfromtimestamp(time)
         dirname = '%4d-%02d' % (timestamp.year, timestamp.month)
         dirname = os.path.join(PMDIR, dirname)
-        datestring = timestamp.replace(microsecond = 0).isoformat()
+        datestring = timestamp.replace(microsecond=0).isoformat()
         filename = os.path.join(dirname, '%s-%s.mat' % (FNAME, datestring))
         return dirname, filename
 
@@ -326,8 +322,7 @@ class Saver:
 
             # Write a log entry into e-log.  Done as background to avoid
             # matplotlib memory leak.
-            safe_fork(self.write_elog_entry,
-                filename, data, self.results.faulty_bpms())
+            safe_fork(self.write_elog_entry, filename, data, self.results.faulty_bpms())
 
     def write_elog_entry(self, filename, data, discrepancies):
         missing, bad_timestamps = discrepancies
@@ -343,15 +338,20 @@ class Saver:
 
 def PV_list(pvs):
     return [
-        [pvs('PM:WFX'), pvs('PM:WFY')],     # X and Y positions
-        pvs('PM:WFS'),                      # Raw beam intensity
-        [pvs('PM:%s_OFFSET' % name)
-         for name in ['X', 'Y', 'ADC']],    # Interlock offsets
-        [pvs('IL:%s%s' % (mm, xy))          # Interlock limits
-         for xy in 'XY' for mm in ['MAX', 'MIN']],
-        pvs('CF:ENABLED_S'),                # Enabled flags
-        [pvs('PM:WF%s%s' % (abcd, iq))      # IQ button waveforms
-         for abcd in 'ABCD' for iq in 'IQ'],
+        [pvs('PM:WFX'), pvs('PM:WFY')],  # X and Y positions
+        pvs('PM:WFS'),  # Raw beam intensity
+        [pvs('PM:%s_OFFSET' % name) for name in ['X', 'Y', 'ADC']],  # Interlock offsets
+        [
+            pvs('IL:%s%s' % (mm, xy))  # Interlock limits
+            for xy in 'XY'
+            for mm in ['MAX', 'MIN']
+        ],
+        pvs('CF:ENABLED_S'),  # Enabled flags
+        [
+            pvs('PM:WF%s%s' % (abcd, iq))  # IQ button waveforms
+            for abcd in 'ABCD'
+            for iq in 'IQ'
+        ],
     ]
 
 
@@ -361,8 +361,8 @@ saver = Saver(Filter('liberafilter.mat'), PV_list(bpms.BPMpvs))
 
 # A couple of identification PVs
 builder.SetDeviceName('CS-DI-IOC-08')
-builder.stringIn('WHOAMI', VAL = 'EBPM Postmortem Server')
-builder.stringIn('HOSTNAME', VAL = os.uname()[1])
+builder.stringIn('WHOAMI', initial_value='EBPM Postmortem Server')
+builder.stringIn('HOSTNAME', initial_value=os.uname()[1])
 
 builder.LoadDatabase()
 softioc.iocInit()

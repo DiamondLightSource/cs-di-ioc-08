@@ -6,15 +6,15 @@ CFLAGS += -Wall -Werror -Wextra
 	$(CC) -shared -fPIC -o $@ $<
 
 
-default: _decimate.so lightweight-venv
+default: _decimate.so build-venv
 
 clean:
 	rm -f *.so *.o *.pyc
-	rm -rf lightweight-venv .venv __pycache__
+	rm -rf .venv __pycache__
 
-lightweight-venv: Pipfile.lock
-	dls-py3 pipfilelock-to-venv
-	touch lightweight-venv
+build-venv: Pipfile.lock
+	PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy --ignore-pipfile
+	
 
 Pipfile.lock: Pipfile
-	PIPENV_VENV_IN_PROJECT=1 pipenv lock
+	PIPENV_VENV_IN_PROJECT=1 pipenv lock --pre --python dls-python3

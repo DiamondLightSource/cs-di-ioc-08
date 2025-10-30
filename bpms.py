@@ -10,31 +10,35 @@ def flatten(ll):
     '''Flattens a list of lists into a single list.'''
     return [x for l in ll for x in l]
 
+
 def cell_size(c):
     if c == 2:
         return 8
     else:
         return 7
 
+
 def make_bpms(straight, cell):
-    return flatten([
-        [straight(c+1, n+1) for n in range(2) if c+1 in STRAIGHTS] +
-        [cell(c+1, n+1) for n in range(cell_size(c+1))]
-        for c in range(24)])
+    return flatten(
+        [
+            [straight(c + 1, n + 1) for n in range(2) if c + 1 in STRAIGHTS]
+            + [cell(c + 1, n + 1) for n in range(cell_size(c + 1))]
+            for c in range(24)
+        ]
+    )
+
 
 BPMS = make_bpms(
     lambda c, n: 'SR%02dS-DI-EBPM-%02d' % (c, n),
-    lambda c, n: 'SR%02dC-DI-EBPM-%02d' % (c, n))
+    lambda c, n: 'SR%02dC-DI-EBPM-%02d' % (c, n),
+)
 
-BPM_ids = make_bpms(
-    lambda c, n: c - 0.2 + 0.1*n,
-    lambda c, n: c + 0.1*n)
+BPM_ids = make_bpms(lambda c, n: c - 0.2 + 0.1 * n, lambda c, n: c + 0.1 * n)
 
-BPM_colours = make_bpms(
-    lambda c, n: 'k',
-    lambda c, n: 'bgrcmykb'[n-1])
+BPM_colours = make_bpms(lambda c, n: 'k', lambda c, n: 'bgrcmykb'[n - 1])
 
 BPM_count = len(BPMS)
+
 
 # Converts a BPM specific PV into one PV per BPM.
 def BPMpvs(name):

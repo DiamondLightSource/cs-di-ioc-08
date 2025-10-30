@@ -9,6 +9,6 @@ scipy = "*"
 softioc = "*"
 numpy = "*"
 cothread = "*"
-# httplib = "*"
+PyQt5 = "*"
 
 [dev-packages]

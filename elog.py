@@ -2,39 +2,46 @@
 
 host = 'rdb.pri.diamond.ac.uk'
 
-import httplib
+import http.client
 import mimetypes
+
 
 def encode_multipart_formdata(fields, files):
     '''
     fields is a sequence of (name, value) elements for regular form fields.
     files is a sequence of (name, filename, value) elements for data to be
     uploaded as files
-    Return (content_type, body) ready for httplib.HTTP instance
+    Return (content_type, body) ready for http.client.HTTP instance
     '''
     BOUNDARY = '----------ThIs_Is_tHe_bouNdaRY_$'
-    CRLF = '\r\n'
+    CRLF = b'\r\n'
     L = []
-    for (key, value) in fields:
+    for key, value in fields:
         L.append('--' + BOUNDARY)
         L.append('Content-Disposition: form-data; name="%s"' % key)
         L.append('')
         L.append(value)
-    for (key, filename, value) in files:
+    for key, filename, value in files:
         L.append('--' + BOUNDARY)
-        L.append('Content-Disposition: form-data; name="%s"; filename="%s"' %
-            (key, filename))
+        L.append(
+            'Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename)
+        )
         L.append('Content-Type: %s' % get_content_type(filename))
         L.append('')
         L.append(value)
     L.append('--' + BOUNDARY + '--')
     L.append('')
+
+    # Convert all parts to bytes
+    L = [p if isinstance(p, (bytes, bytearray)) else str(p).encode('utf-8') for p in L]
     body = CRLF.join(L)
     content_type = 'multipart/form-data; boundary=%s' % BOUNDARY
     return content_type, body
 
+
 def get_content_type(filename):
     return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+
 
 def post_multipart(host, selector, fields, files):
     '''
@@ -45,15 +52,14 @@ def post_multipart(host, selector, fields, files):
     Return the server's response page.
     '''
     content_type, body = encode_multipart_formdata(fields, files)
-    h = httplib.HTTP(host)
+    h = http.client.HTTPConnection(host)
     h.putrequest('POST', selector)
     h.putheader('content-type', content_type)
     h.putheader('content-length', str(len(body)))
     h.endheaders()
     h.send(body)
-    errcode, errmsg, headers = h.getreply()
-    return h.file.read()
-
+    resp = h.getresponse()
+    return resp.read()
 
 
 def entry(title, content, png, debug):
@@ -61,10 +67,11 @@ def entry(title, content, png, debug):
         selector = '/devl/php/elog/cs_logaddfromioc.php'
     else:
         selector = '/php/elog/cs_logaddfromioc.php'
-    args = dict(txtLOGBOOKID = 'OPR', txtCONTENT = content, txtTITLE = title)
+    args = dict(txtLOGBOOKID='OPR', txtCONTENT=content, txtTITLE=title)
     files = (('userfile1', 'postmortem.png', png),)
     try:
         post_multipart(host, selector, args.items(), files)
-    except:
+    except Exception:
         import traceback
+
         traceback.print_exc()
