@@ -6,30 +6,27 @@
 #
 # Authors Alun Morgan and Michael Abbott
 
-import os
 import datetime
+import os
 
-os.environ['MPLCONFIGDIR'] = '/tmp'
+os.environ["MPLCONFIGDIR"] = "/tmp"
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
 # load the cothread library so that CA pays attention to it!
-os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '1000000'
+os.environ["EPICS_CA_MAX_ARRAY_BYTES"] = "1000000"
 
 import sys
+
 import cothread
-from cothread import catools
 import numpy
-from scipy.io import savemat, loadmat
+from cothread import catools
+from scipy.io import loadmat, savemat
 from scipy.signal import lfilter
 
 # Python soft IOC imports
 from softioc import builder, softioc
 
-import elog
-import decimate
-import plotserv
-import bpms
-
+from . import bpms, decimate, elog, plotserv
 
 # Controlling definitions
 POSTMORTEM_TIMEOUT = 30
@@ -40,25 +37,31 @@ TIMESTAMP_MARGIN = 0.1  # 100ms timestamp discrepancy ignored
 MATLAB_EPOCH = 719529  # Days from 1970/1/1 to 1990/1/1
 
 
-DEBUG = 'D' in sys.argv
+DEBUG = "-D" in sys.argv
 
 if DEBUG:
-    PMDIR = '/tmp/BPM_postmortems'
+    PMDIR = "/tmp/BPM_postmortems"
 else:
-    PMDIR = '/dls/ops-data/Postmortems/BPM_postmortems'
-FNAME = 'bpm_postmortem'
+    PMDIR = "/dls/ops-data/Postmortems/BPM_postmortems"
+FNAME = "bpm_postmortem"
 
 
 # The following message is written to e-log on successful writing of a
 # postmortem file.
-PM_MESSAGE = 'Saved in %(filename)s\n' + '%(missing_message)s%(bad_timestamps_message)s'
+PM_MESSAGE = "Saved in %(filename)s\n" + "%(missing_message)s%(bad_timestamps_message)s"
 
 
 class Filter:
     def __init__(self, filename):
         taps = loadmat(filename, squeeze_me=True)
-        for name in taps.keys():
-            setattr(self, name, taps[name])
+        # for name in taps.keys():
+        #    setattr(self, name, taps[name])
+        self.fir = taps["fir"]
+        self.n1n = taps["n1n"]
+        self.n1d = taps["n1d"]
+        self.n2n = taps["n2n"]
+        self.n2d = taps["n2d"]
+
         self.fir_sum = sum(self.fir)
         assert self.fir.ndim == 1
 
@@ -122,7 +125,7 @@ class Result:
     def update_xy(self, xy, bpm, value):
         if len(value) == 0:
             return  # Ignore empty value on initial BPM startup
-        sys.stderr.write('[')
+        sys.stderr.write("[")
         self.valid[xy, bpm] = self.on_start()
         self.stamps[xy, bpm] = value.timestamp
         self.xy[xy, bpm] = value
@@ -134,14 +137,14 @@ class Result:
     def update_s(self, bpm, value):
         if len(value) == 0:
             return  # Ignore empty value on initial BPM startup
-        sys.stderr.write('<')
+        sys.stderr.write("<")
         self.s[bpm] = value
 
     def update_offsets(self, index, bpm, value):
         self.offsets[index, bpm] = value
 
     def update_limits(self, index, bpm, value):
-        sys.stderr.write('#')
+        sys.stderr.write("#")
         self.limits[index, bpm] = value
 
     def update_enabled(self, bpm, value):
@@ -171,26 +174,26 @@ class Result:
         phase = phase.mean(0).mean(0)
         phase -= phase[0]
 
-        return dict(
-            valid=self.valid,
-            time=unix_to_matlab(self.stamp),
-            stamps=unix_to_matlab(self.stamps),
-            x=1e-6 * self.xy[0].T,
-            y=1e-6 * self.xy[1].T,
-            xfa=1e-6 * self.xyfa[0].T,
-            yfa=1e-6 * self.xyfa[1].T,
-            s=1e-6 * self.s.mean(0),
-            phase=phase,
-            x_offset=self.offsets[0],
-            y_offset=self.offsets[1],
-            adc_offset=self.offsets[2],
-            bpm_id=numpy.array(bpms.BPM_ids),
-            maxx=self.limits[0],
-            minx=self.limits[1],
-            maxy=self.limits[2],
-            miny=self.limits[3],
-            enabled=self.enabled,
-        )
+        return {
+            "valid": self.valid,
+            "time": unix_to_matlab(self.stamp),
+            "stamps": unix_to_matlab(self.stamps),
+            "x": 1e-6 * self.xy[0].T,
+            "y": 1e-6 * self.xy[1].T,
+            "xfa": 1e-6 * self.xyfa[0].T,
+            "yfa": 1e-6 * self.xyfa[1].T,
+            "s": 1e-6 * self.s.mean(0),
+            "phase": phase,
+            "x_offset": self.offsets[0],
+            "y_offset": self.offsets[1],
+            "adc_offset": self.offsets[2],
+            "bpm_id": numpy.array(bpms.BPM_ids),
+            "maxx": self.limits[0],
+            "minx": self.limits[1],
+            "maxy": self.limits[2],
+            "miny": self.limits[3],
+            "enabled": self.enabled,
+        }
 
     def reset(self):
         self.valid[:] = False
@@ -212,7 +215,7 @@ def safe_fork(fn, *args, **kargs):
     if pid == 0:
         try:
             fn(*args, **kargs)
-        except:
+        except Exception:
             import traceback
 
             traceback.print_exc()
@@ -234,21 +237,20 @@ def maybe_report(bpm_list, message):
     n = len(bpm_list)
     if n > 0:
         if n > 1:
-            plural = 's are'
+            plural = "s are"
         else:
-            plural = ' is'
-        return '\nThe following BPM%s %s: %s\n' % (
-            plural,
-            message,
-            ', '.join(bpms.BPMS[i] for i in bpm_list),
-        )
+            plural = " is"
+        bpm_names = ", ".join(bpms.BPMS[i] for i in bpm_list)
+        return f"\nThe following BPM{plural} {message}: {bpm_names}\n"
     else:
-        return ''
+        return ""
+
+
+SECS_PER_DAY = 24 * 60 * 60
 
 
 # Converts Unix timestamp to Matlab format.
 def unix_to_matlab(timestamp):
-    SECS_PER_DAY = 24 * 60 * 60
     return timestamp / SECS_PER_DAY + MATLAB_EPOCH
 
 
@@ -260,22 +262,22 @@ class Saver:
 
     # object constructor
     def __init__(self, filter, sr_pvs):
-        self.results = Result(filter, self.StartTimer, sr_pvs)
+        self.results = Result(filter, self.start_timer, sr_pvs)
 
         self.timer_state = self.TIMER_OFF
 
-    def StartTimer(self):
+    def start_timer(self):
         if self.timer_state == self.TIMER_QUIESCENT:
             # In quiescent state ignore everything
             return False
         elif self.timer_state == self.TIMER_OFF:
-            print('Starting timer')
+            print("Starting timer")
             self.timer_state = self.TIMER_RUNNING
-            cothread.Timer(POSTMORTEM_TIMEOUT, self.CaptureComplete)
+            cothread.Timer(POSTMORTEM_TIMEOUT, self.capture_complete)
         return True
 
-    def CaptureComplete(self):
-        print('Capture complete triggered!')
+    def capture_complete(self):
+        print("Capture complete triggered!")
         self.timer_state = self.TIMER_QUIESCENT
 
         # Write out whatever we have now.
@@ -284,7 +286,7 @@ class Saver:
         # Ensure we only generate something with a valid timestamp
         timestamp = self.results.timestamp()
         if numpy.isnan(timestamp):
-            print('Ignoring PM: no valid timestamp!')
+            print("Ignoring PM: no valid timestamp!")
         else:
             self.write_result(timestamp)
 
@@ -296,29 +298,29 @@ class Saver:
         # every two minutes...
         cothread.Sleep(QUIESCENT_TIMEOUT)
 
-        print('Quiescent complete triggered')
+        print("Quiescent complete triggered")
         self.timer_state = self.TIMER_OFF
 
     def filename(self, time):
         # Computes the filename from the timestamp.
         timestamp = datetime.datetime.utcfromtimestamp(time)
-        dirname = '%4d-%02d' % (timestamp.year, timestamp.month)
+        dirname = f"{timestamp.year:4d}-{timestamp.month:02d}"
         dirname = os.path.join(PMDIR, dirname)
         datestring = timestamp.replace(microsecond=0).isoformat()
-        filename = os.path.join(dirname, '%s-%s.mat' % (FNAME, datestring))
+        filename = os.path.join(dirname, f"{FNAME}-{datestring}.mat")
         return dirname, filename
 
     def write_result(self, timestamp):
         dirname, filename = self.filename(timestamp)
         if os.path.isfile(filename):
-            print('File %s already exists' % filename)
+            print(f"File {filename} already exists")
         else:
             if not os.path.isdir(dirname):
-                print('Creating', dirname)
+                print("Creating", dirname)
                 os.makedirs(dirname)
-            print('Writing pm', filename)
+            print("Writing pm", filename)
             data = self.results.get_data()
-            savemat(filename, data, appendmat=True, oned_as='column')
+            savemat(filename, data, appendmat=True, oned_as="column")
 
             # Write a log entry into e-log.  Done as background to avoid
             # matplotlib memory leak.
@@ -328,43 +330,43 @@ class Saver:
         missing, bad_timestamps = discrepancies
         buf = plotserv.display_waveforms(data)
         where = os.path.abspath(os.path.dirname(__file__))
-        missing_message = maybe_report(missing, 'missing from this postmortem')
-        bad_timestamps_message = maybe_report(bad_timestamps, 'out of sync')
+        missing_message = maybe_report(missing, "missing from this postmortem")
+        bad_timestamps_message = maybe_report(bad_timestamps, "out of sync")
         pm_message = PM_MESSAGE % locals()
 
-        elog.entry('BPM postmortem recorded', pm_message, buf, DEBUG)
-        print('Logged BPM postmortem')
+        elog.entry("BPM postmortem recorded", pm_message, buf, DEBUG)
+        print("Logged BPM postmortem")
 
 
-def PV_list(pvs):
+def pv_list(pvs):
     return [
-        [pvs('PM:WFX'), pvs('PM:WFY')],  # X and Y positions
-        pvs('PM:WFS'),  # Raw beam intensity
-        [pvs('PM:%s_OFFSET' % name) for name in ['X', 'Y', 'ADC']],  # Interlock offsets
+        [pvs("PM:WFX"), pvs("PM:WFY")],  # X and Y positions
+        pvs("PM:WFS"),  # Raw beam intensity
+        [pvs(f"PM:{name}_OFFSET") for name in ["X", "Y", "ADC"]],  # Interlock offsets
         [
-            pvs('IL:%s%s' % (mm, xy))  # Interlock limits
-            for xy in 'XY'
-            for mm in ['MAX', 'MIN']
+            pvs(f"IL:{mm}{xy}")  # Interlock limits
+            for xy in "XY"
+            for mm in ["MAX", "MIN"]
         ],
-        pvs('CF:ENABLED_S'),  # Enabled flags
+        pvs("CF:ENABLED_S"),  # Enabled flags
         [
-            pvs('PM:WF%s%s' % (abcd, iq))  # IQ button waveforms
-            for abcd in 'ABCD'
-            for iq in 'IQ'
+            pvs(f"PM:WF{abcd}{iq}")  # IQ button waveforms
+            for abcd in "ABCD"
+            for iq in "IQ"
         ],
     ]
 
 
-# save task
-saver = Saver(Filter('liberafilter.mat'), PV_list(bpms.BPMpvs))
+def start_server():
+    # save task
+    saver = Saver(Filter("liberafilter.mat"), pv_list(bpms.bpm_pvs))  # noqa: F841
 
+    # A couple of identification PVs
+    builder.SetDeviceName("CS-DI-IOC-08")
+    builder.stringIn("WHOAMI", initial_value="EBPM Postmortem Server")
+    builder.stringIn("HOSTNAME", initial_value=os.uname()[1])
 
-# A couple of identification PVs
-builder.SetDeviceName('CS-DI-IOC-08')
-builder.stringIn('WHOAMI', initial_value='EBPM Postmortem Server')
-builder.stringIn('HOSTNAME', initial_value=os.uname()[1])
+    builder.LoadDatabase()
+    softioc.iocInit()
 
-builder.LoadDatabase()
-softioc.iocInit()
-
-softioc.interactive_ioc(globals())
+    softioc.interactive_ioc(globals())

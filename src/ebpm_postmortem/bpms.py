@@ -7,8 +7,8 @@ STRAIGHTS = [9, 10, 13]
 
 
 def flatten(ll):
-    '''Flattens a list of lists into a single list.'''
-    return [x for l in ll for x in l]
+    """Flattens a list of lists into a single list."""
+    return [x for sublist in ll for x in sublist]
 
 
 def cell_size(c):
@@ -29,17 +29,17 @@ def make_bpms(straight, cell):
 
 
 BPMS = make_bpms(
-    lambda c, n: 'SR%02dS-DI-EBPM-%02d' % (c, n),
-    lambda c, n: 'SR%02dC-DI-EBPM-%02d' % (c, n),
+    lambda c, n: f"SR{c:02d}S-DI-EBPM-{n:02d}",
+    lambda c, n: f"SR{c:02d}C-DI-EBPM-{n:02d}",
 )
 
 BPM_ids = make_bpms(lambda c, n: c - 0.2 + 0.1 * n, lambda c, n: c + 0.1 * n)
 
-BPM_colours = make_bpms(lambda c, n: 'k', lambda c, n: 'bgrcmykb'[n - 1])
+BPM_colours = make_bpms(lambda c, n: "k", lambda c, n: "bgrcmykb"[n - 1])
 
 BPM_count = len(BPMS)
 
 
 # Converts a BPM specific PV into one PV per BPM.
-def BPMpvs(name):
-    return ['%s:%s' % (bpm, name) for bpm in BPMS]
+def bpm_pvs(name):
+    return [f"{bpm}:{name}" for bpm in BPMS]

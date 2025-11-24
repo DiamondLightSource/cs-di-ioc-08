@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: CS-DI-IOC-08
+  title: CS-DI-IOC-08
+  description: Postmortem server for EBPMs
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/accelerator-controls

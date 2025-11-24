@@ -1,28 +1,29 @@
-'''Simple wrapper for decimation and filtering.'''
+"""Simple wrapper for decimation and filtering."""
 
 import ctypes
 import os
-from numpy import *
+
+import numpy as np
 
 decimate_lib = ctypes.cdll.LoadLibrary(
-    os.path.join(os.path.dirname(__file__), './_decimate.so')
+    os.path.join(os.path.dirname(__file__), "./_decimate.so")
 )
 _decimate = decimate_lib.decimate
 
 
 def decimate(waveform, filter, interval=1):
-    '''Convolves waveform with filter, possibly performing decimation by the
+    """Convolves waveform with filter, possibly performing decimation by the
     factor specified by interval at the same time.  Only points entirely
-    within waveform will be filtered.'''
+    within waveform will be filtered."""
 
     # First ensure the inputs are compatible.  We only allow one dimensional
     # arrays, and the underlying conversion function only operates on aligned
     # and contiguous float64 values.
-    assert (
-        waveform.ndim == 1 and filter.ndim == 1
-    ), 'Only one dimensional waveforms supported'
-    waveform = require(waveform, requirements='CA', dtype=float64)
-    filter = require(filter, requirements='CA', dtype=float64)
+    assert waveform.ndim == 1 and filter.ndim == 1, (
+        "Only one dimensional waveforms supported"
+    )
+    waveform = np.require(waveform, requirements=["C", "A"], dtype=np.float64)
+    filter = np.require(filter, requirements=["C", "A"], dtype=np.float64)
 
     # Compute the result waveform.
     waveform_n = len(waveform)
@@ -30,10 +31,10 @@ def decimate(waveform, filter, interval=1):
     if waveform_n < filter_n:
         # If the waveform is shorter than the filter then nothing at all is
         # going to be returned
-        return array([], dtype=float64)
+        return np.array([], dtype=np.float64)
     else:
         output_length = 1 + (waveform_n - filter_n) // interval
-        result = empty(output_length, dtype=float64)
+        result = np.empty(output_length, dtype=np.float64)
         _decimate(
             waveform.ctypes.data,
             filter.ctypes.data,
@@ -45,4 +46,4 @@ def decimate(waveform, filter, interval=1):
         return result
 
 
-__all__ = ['decimate']
+__all__ = ["decimate"]
