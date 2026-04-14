@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "CS-DI-IOC-08"
+name = "cd-di-ioc-08"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
@@ -18,6 +18,7 @@ dependencies = [
     "softioc",
     "PyQt5",
     "matplotlib",
+    "stdio-socket>=1.4.0",
 ] # Add project dependencies here, e.g. ["click", "numpy"]
 dynamic = ["version"]
 license.file = "LICENSE"
@@ -37,10 +38,10 @@ dev = [
 ]
 
 [project.scripts]
-CS-DI-IOC-08 = "ebpm_postmortem.__main__:main"
+cs-di-ioc-08 = "ebpm_postmortem.__main__:main"
 
 [project.urls]
-GitHub = "https://gitlab.diamond.ac.uk/controls/ioc/CS/cs-di-ioc-08"
+GitHub = "https://github.com/DiamondLightSource/cs-di-ioc-08"
 
 [[project.authors]] # Further authors may be added by duplicating this section
 email = "bryn.roberts@diamond.ac.uk"
@@ -103,7 +104,7 @@ commands = [
     [
         "pyright",
         "--pythonpath",
-        ".venv/bin/python",
+        "{env:VIRTUAL_ENV}/bin/python",
         "src",
         "tests",
         { replace = "posargs", default = [

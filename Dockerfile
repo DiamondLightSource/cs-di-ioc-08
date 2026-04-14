@@ -48,5 +48,5 @@ ENV PATH=/app/.venv/bin:$PATH
 COPY --from=build /app/ebpm_postmortem/*.so /app/ebpm_postmortem/
 
 # change this entrypoint if it is not the same as the repo
-ENTRYPOINT ["CS-DI-IOC-08"]
+ENTRYPOINT ["cs-di-ioc-08"]
 CMD ["--version"]

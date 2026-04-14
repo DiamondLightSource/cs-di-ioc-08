@@ -1,8 +1,8 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: CS-DI-IOC-08
-  title: CS-DI-IOC-08
+  name: cd-di-ioc-08
+  title: cs-di-ioc-08
   description: Postmortem server for EBPMs
 spec:
   type: service
