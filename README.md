@@ -7,8 +7,6 @@
 
 Postmortem server for EBPMs
 
-This is where you should write a short paragraph that describes what your module does,
-how it does it, and why people should use it.
 
 Source          | <https://github.com/DiamondLightSource/cs-di-ioc-08>
 :---:           | :---:
@@ -21,4 +19,4 @@ Releases        | <https://github.com/DiamondLightSource/cs-di-ioc-08/releases>
 python -m ebpm_postmortem
 ```
 
-Use flag `-D` to run in debug mode.
+Use flag `-d` to run in debug mode.

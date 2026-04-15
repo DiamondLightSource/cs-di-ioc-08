@@ -54,6 +54,9 @@ name = "Michael Abbott"
 [tool.setuptools_scm]
 version_file = "src/ebpm_postmortem/_version.py"
 
+[tool.setuptools.package-data]
+ebpm_postmortem = ["*.so"]
+
 [tool.pyright]
 typeCheckingMode = "standard"
 reportMissingImports = false  # Ignore missing stubs in imported modules

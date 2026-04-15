@@ -36,13 +36,6 @@ TIMESTAMP_MARGIN = 0.1  # 100ms timestamp discrepancy ignored
 
 MATLAB_EPOCH = 719529  # Days from 1970/1/1 to 1990/1/1
 
-
-DEBUG = "-D" in sys.argv
-
-if DEBUG:
-    PMDIR = "/tmp/BPM_postmortems"
-else:
-    PMDIR = "/dls/ops-data/Postmortems/BPM_postmortems"
 FNAME = "bpm_postmortem"
 
 
@@ -62,7 +55,7 @@ class Filter:
         self.n2n = taps["n2n"]
         self.n2d = taps["n2d"]
 
-        self.fir_sum = sum(self.fir)
+        self.fir_sum = numpy.sum(self.fir)
         assert self.fir.ndim == 1
 
     def tt2fa(self, waveform):
@@ -261,10 +254,12 @@ class Saver:
     TIMER_QUIESCENT = 2  # Ignoring further updates for a bit...
 
     # object constructor
-    def __init__(self, filter, sr_pvs):
+    def __init__(self, filter, sr_pvs, pmdir, debug=False):
         self.results = Result(filter, self.start_timer, sr_pvs)
 
         self.timer_state = self.TIMER_OFF
+        self.pmdir = pmdir
+        self.debug = debug
 
     def start_timer(self):
         if self.timer_state == self.TIMER_QUIESCENT:
@@ -305,7 +300,7 @@ class Saver:
         # Computes the filename from the timestamp.
         timestamp = datetime.datetime.utcfromtimestamp(time)
         dirname = f"{timestamp.year:4d}-{timestamp.month:02d}"
-        dirname = os.path.join(PMDIR, dirname)
+        dirname = os.path.join(self.pmdir, dirname)
         datestring = timestamp.replace(microsecond=0).isoformat()
         filename = os.path.join(dirname, f"{FNAME}-{datestring}.mat")
         return dirname, filename
@@ -334,7 +329,7 @@ class Saver:
         bad_timestamps_message = maybe_report(bad_timestamps, "out of sync")
         pm_message = PM_MESSAGE % locals()
 
-        elog.entry("BPM postmortem recorded", pm_message, buf, DEBUG)
+        elog.entry("BPM postmortem recorded", pm_message, buf, self.debug)
         print("Logged BPM postmortem")
 
 
@@ -357,9 +352,9 @@ def pv_list(pvs):
     ]
 
 
-def start_server():
+def start_server(pmdir: str, debug: bool = False) -> None:
     # save task
-    saver = Saver(Filter("liberafilter.mat"), pv_list(bpms.bpm_pvs))  # noqa: F841
+    saver = Saver(Filter("liberafilter.mat"), pv_list(bpms.bpm_pvs), pmdir, debug)  # noqa: F841
 
     # A couple of identification PVs
     builder.SetDeviceName("CS-DI-IOC-08")

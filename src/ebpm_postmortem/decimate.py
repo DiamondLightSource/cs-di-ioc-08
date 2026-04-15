@@ -1,12 +1,12 @@
 """Simple wrapper for decimation and filtering."""
 
 import ctypes
-import os
+from importlib.resources import files
 
 import numpy as np
 
 decimate_lib = ctypes.cdll.LoadLibrary(
-    os.path.join(os.path.dirname(__file__), "./_decimate.so")
+    str(files("ebpm_postmortem").joinpath("_decimate.so"))
 )
 _decimate = decimate_lib.decimate
 

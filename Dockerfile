@@ -17,7 +17,7 @@ COPY . /app
 RUN chmod o+wrX .
 
 # Compile C code
-WORKDIR /app/ebpm_postmortem
+WORKDIR /app/src/ebpm_postmortem
 RUN make clean && make
 WORKDIR /app
 
@@ -44,8 +44,11 @@ COPY --from=build /python /python
 COPY --from=build /app/.venv /app/.venv
 ENV PATH=/app/.venv/bin:$PATH
 
-# Copy the compiled C code
-COPY --from=build /app/ebpm_postmortem/*.so /app/ebpm_postmortem/
+# Copy the liberafilter.mat file required by library
+COPY --from=build /app/liberafilter.mat /app/liberafilter.mat
+
+# Set the working directory since code assumes liberafilter.mat is in the current directory
+WORKDIR /app
 
 # change this entrypoint if it is not the same as the repo
 ENTRYPOINT ["cs-di-ioc-08"]
