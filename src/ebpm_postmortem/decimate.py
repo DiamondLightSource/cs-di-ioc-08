@@ -1,14 +1,6 @@
 """Simple wrapper for decimation and filtering."""
 
-import ctypes
-from importlib.resources import files
-
 import numpy as np
-
-decimate_lib = ctypes.cdll.LoadLibrary(
-    str(files("ebpm_postmortem").joinpath("_decimate.so"))
-)
-_decimate = decimate_lib.decimate
 
 
 def decimate(waveform, filter, interval=1):
@@ -33,16 +25,7 @@ def decimate(waveform, filter, interval=1):
         # going to be returned
         return np.array([], dtype=np.float64)
     else:
-        output_length = 1 + (waveform_n - filter_n) // interval
-        result = np.empty(output_length, dtype=np.float64)
-        _decimate(
-            waveform.ctypes.data,
-            filter.ctypes.data,
-            result.ctypes.data,
-            waveform_n,
-            filter_n,
-            interval,
-        )
+        result = np.convolve(waveform, filter, mode="valid")[::interval]
         return result
 
 

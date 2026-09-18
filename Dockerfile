@@ -16,11 +16,6 @@ WORKDIR /app
 COPY . /app
 RUN chmod o+wrX .
 
-# Compile C code
-WORKDIR /app/src/ebpm_postmortem
-RUN make clean && make
-WORKDIR /app
-
 # Tell uv sync to install python in a known location so we can copy it out later
 ENV UV_PYTHON_INSTALL_DIR=/python
 
