@@ -10,6 +10,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 description = "Postmortem server for EBPMs"
 dependencies = [
@@ -27,7 +28,6 @@ requires-python = ">=3.11"
 
 [dependency-groups]
 dev = [
-    "copier",
     "pre-commit",
     "pyright",
     "pytest",
@@ -47,9 +47,15 @@ GitHub = "https://github.com/DiamondLightSource/cs-di-ioc-08"
 email = "bryn.roberts@diamond.ac.uk"
 name = "Bryn Roberts"
 
+<<<<<<< before updating
 [[project.authors]]
 email = "michael.abbott@diamond.ac.uk"
 name = "Michael Abbott"
+=======
+[tool.uv]
+# Minimum uv to fix eMudhra CA cert incident (see discuss.python.org/t/109576)
+required-version = ">=0.13.5"
+>>>>>>> after updating
 
 [tool.setuptools_scm]
 version_file = "src/ebpm_postmortem/_version.py"
