@@ -8,8 +8,9 @@
 Postmortem server for EBPMs
 
 
-Source          | <https://github.com/DiamondLightSource/cs-di-ioc-08>
+What            | Where
 :---:           | :---:
+Source          | <https://github.com/DiamondLightSource/cs-di-ioc-08>
 Docker          | `docker run ghcr.io/diamondlightsource/cs-di-ioc-08:latest`
 Releases        | <https://github.com/DiamondLightSource/cs-di-ioc-08/releases>
 
